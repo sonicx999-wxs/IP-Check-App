@@ -289,6 +289,40 @@ function analyzeData(ip, ipqs, ipinfo, scam) {
 
     const risk = getRiskLevel(score);
 
+    // 5. TikTok-Specific Quality Metrics
+    const quality = {
+        isDatacenter: false,
+        isMobile: false,
+        hasRecentAbuse: false,
+        isCrawler: false,
+        isBlacklisted: false,
+        ispRisk: 'unknown',
+        specialService: []
+    };
+
+    // Extract from Scamalytics
+    if (scam && scam.scamalytics) {
+        const scamProxy = scam.scamalytics.scamalytics_proxy;
+        if (scamProxy) {
+            quality.isDatacenter = scamProxy.is_datacenter || false;
+
+            // Special services detection
+            if (scamProxy.is_amazon_aws) quality.specialService.push('AWS');
+            if (scamProxy.is_google) quality.specialService.push('Google');
+            if (scamProxy.is_apple_icloud_private_relay) quality.specialService.push('iCloud');
+        }
+
+        quality.ispRisk = scam.scamalytics.scamalytics_isp_risk || 'unknown';
+        quality.isBlacklisted = scam.scamalytics.is_blacklisted_external || false;
+    }
+
+    // Extract from IPQS
+    if (ipqs && ipqs.success) {
+        quality.isMobile = ipqs.mobile || false;
+        quality.hasRecentAbuse = ipqs.recent_abuse || false;
+        quality.isCrawler = ipqs.is_crawler || ipqs.bot_status || false;
+    }
+
     return {
         ip: ip,
         location: location,
@@ -298,6 +332,7 @@ function analyzeData(ip, ipqs, ipinfo, scam) {
         riskLabel: risk.label,
         riskColor: risk.color,
         riskBg: risk.bg,
+        quality: quality,
         rawData: {
             ipqs: ipqs,
             ipinfo: ipinfo,
@@ -357,6 +392,59 @@ function renderResults(results) {
                         <span class="text-xs px-2 py-0.5 rounded ${data.rawData.ipinfo && !data.rawData.ipinfo.error ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">IPinfo</span>
                         <span class="text-xs px-2 py-0.5 rounded ${data.rawData.scamalytics && !data.rawData.scamalytics.error ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">Scam</span>
                     </div>
+                </div>
+            </div>
+            
+            <!-- IP Quality Assessment for TikTok -->
+            <div class="mt-6 p-4 bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-lg border border-purple-500/30">
+                <h4 class="text-sm font-bold text-purple-300 mb-3 flex items-center gap-2">
+                    <i class="ph-fill ph-shield-check"></i> IP质量评估 (TikTok运营专用)
+                </h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    ${data.quality ? `
+                        <div class="flex items-center gap-2 text-xs">
+                            ${data.quality.isDatacenter
+                    ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-400">❌ 数据中心</span>'
+                    : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-400">✅ 住宅IP</span>'
+                }
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            ${data.quality.isMobile
+                    ? '<span class="px-2 py-1 rounded bg-green-500/20 text-green-400">📱 移动网络</span>'
+                    : '<span class="px-2 py-1 rounded bg-gray-500/20 text-gray-400">🏢 固网</span>'
+                }
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            ${data.quality.hasRecentAbuse
+                    ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-400">⚠️ 有滥用</span>'
+                    : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-400">✅ 无滥用</span>'
+                }
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            ${data.quality.isCrawler
+                    ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-400">🤖 爬虫IP</span>'
+                    : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-400">✅ 非爬虫</span>'
+                }
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            ${data.quality.isBlacklisted
+                    ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-400">🔴 已列黑名单</span>'
+                    : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-400">✅ 未列黑名单</span>'
+                }
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="px-2 py-1 rounded ${data.quality.ispRisk === 'low' ? 'bg-green-500/20 text-green-400' :
+                    data.quality.ispRisk === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                        data.quality.ispRisk === 'high' ? 'bg-red-500/20 text-red-400' :
+                            'bg-gray-500/20 text-gray-400'
+                }">ISP风险: ${data.quality.ispRisk}</span>
+                        </div>
+                        ${data.quality.specialService.length > 0 ? `
+                            <div class="flex items-center gap-2 text-xs col-span-2">
+                                <span class="px-2 py-1 rounded bg-blue-500/20 text-blue-400">☁️ ${data.quality.specialService.join(', ')}</span>
+                            </div>
+                        ` : ''}
+                    ` : '<p class="text-gray-500 text-xs col-span-full">质量数据不可用</p>'}
                 </div>
             </div>
             
@@ -441,7 +529,8 @@ function renderHistory() {
         content.addEventListener('click', () => {
             ipInput.value = item.ips.join('\n');
             closeSidebar();
-            handleCheck();
+            // Directly render cached results instead of re-checking
+            renderResults(item.results);
         });
 
         div.appendChild(checkbox);

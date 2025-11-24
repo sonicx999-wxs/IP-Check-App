@@ -6,6 +6,22 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [1.3.0] - 2025-11-25
+
+### ✨ 新增功能 (New Features)
+- **TikTok专用IP质量检测**: 新增7项针对TikTok运营的关键指标
+  - 数据中心IP识别 (Datacenter Detection)
+  - 移动网络检测 (Mobile Network Detection)
+  - 滥用记录检查 (Recent Abuse Check)
+  - 爬虫IP识别 (Crawler Detection)
+  - 黑名单状态 (Blacklist Status)
+  - ISP风险评级 (ISP Risk Rating)
+  - 特殊服务标记 (Special Service Tags: AWS/Google/iCloud)
+- **IP质量评估可视化**: 新增专用展示区域，使用Color-coded徽章系统
+
+### 🎨 优化改进 (Improvements)
+- **历史记录交互优化**: 点击历史记录直接显示缓存结果，无需重新检测，提升响应速度
+
 ## [1.2.1] - 2025-11-25
 
 ### 🚑 修复 (Fixes)
