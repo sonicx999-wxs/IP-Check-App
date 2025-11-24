@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 checkBtn.addEventListener('click', handleCheck);
 historyToggle.addEventListener('click', toggleSidebar);
 closeHistory.addEventListener('click', closeSidebar);
+sidebarOverlay.addEventListener('click', closeSidebar);
 
 // Settings Events
 settingsToggle.addEventListener('click', openSettings);
@@ -290,6 +291,9 @@ function analyzeData(ip, ipqs, ipinfo, scam) {
     const risk = getRiskLevel(score);
 
     // 5. TikTok-Specific Quality Metrics
+    const hasValidScam = scam && !scam.error && scam.scamalytics;
+    const hasValidIPQS = ipqs && !ipqs.error && ipqs.success;
+
     const quality = {
         isDatacenter: false,
         isMobile: false,
@@ -297,11 +301,12 @@ function analyzeData(ip, ipqs, ipinfo, scam) {
         isCrawler: false,
         isBlacklisted: false,
         ispRisk: 'unknown',
-        specialService: []
+        specialService: [],
+        isValid: hasValidScam || hasValidIPQS
     };
 
     // Extract from Scamalytics
-    if (scam && scam.scamalytics) {
+    if (hasValidScam) {
         const scamProxy = scam.scamalytics.scamalytics_proxy;
         if (scamProxy) {
             quality.isDatacenter = scamProxy.is_datacenter || false;
@@ -317,7 +322,7 @@ function analyzeData(ip, ipqs, ipinfo, scam) {
     }
 
     // Extract from IPQS
-    if (ipqs && ipqs.success) {
+    if (hasValidIPQS) {
         quality.isMobile = ipqs.mobile || false;
         quality.hasRecentAbuse = ipqs.recent_abuse || false;
         quality.isCrawler = ipqs.is_crawler || ipqs.bot_status || false;
@@ -401,7 +406,7 @@ function renderResults(results) {
                     <i class="ph-fill ph-shield-check"></i> IP质量评估 (TikTok运营专用)
                 </h4>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    ${data.quality ? `
+                    ${data.quality && data.quality.isValid ? `
                         <div class="flex items-center gap-2 text-xs">
                             ${data.quality.isDatacenter
                     ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-400">❌ 数据中心</span>'
@@ -444,7 +449,11 @@ function renderResults(results) {
                                 <span class="px-2 py-1 rounded bg-blue-500/20 text-blue-400">☁️ ${data.quality.specialService.join(', ')}</span>
                             </div>
                         ` : ''}
-                    ` : '<p class="text-gray-500 text-xs col-span-full">质量数据不可用</p>'}
+                    ` : `
+                        <div class="flex items-center gap-2 text-xs col-span-full">
+                            <span class="px-3 py-2 rounded bg-red-500/20 text-red-400 border border-red-500/30">⚠️ 质量数据不可用 - API请求失败或服务器未启动</span>
+                        </div>
+                    `}
                 </div>
             </div>
             

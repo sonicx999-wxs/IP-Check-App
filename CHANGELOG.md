@@ -6,6 +6,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [1.3.1] - 2025-11-25
+
+### 🐛 修复 (Fixes)
+- **IP质量数据验证**: 修复API失败时仍显示"合格"数据的bug，现在会正确显示红色警告
+- **侧边栏交互**: 添加遮罩层，支持点击外部区域关闭历史记录侧边栏
+
 ## [1.3.0] - 2025-11-25
 
 ### ✨ 新增功能 (New Features)
