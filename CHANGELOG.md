@@ -6,6 +6,19 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [1.3.3] - 2025-11-26
+
+### ✨ 新增功能 (New Features)
+- **单个历史记录删除**: 历史记录侧边栏每条记录右侧新增删除按钮
+  - 采用"按钮内二次确认"模式:首次点击图标变红,再次点击执行删除
+  - 3秒超时自动恢复,防止误操作
+  - 使用 `e.stopPropagation()` 阻止事件冒泡,确保不会触发历史记录加载
+
+### 🐛 修复 (Fixes)
+- **Phosphor Icons 图标显示**: 修复删除按钮图标不可见的问题
+  - 根本原因:缺少 `ph-bold` 前缀类名,导致浏览器无法识别 Phosphor 字体
+  - 修复方案:将 `ph-trash` 改为 `ph-bold ph-trash`,确保图标正确渲染
+
 ## [1.3.2] - 2025-11-26
 
 ### ✨ 优化改进 (Improvements)

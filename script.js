@@ -566,6 +566,11 @@ function renderHistory() {
             }
         });
 
+        // 内容区域容器 (使用 Flexbox 布局)
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'flex-1 flex items-center justify-between gap-2';
+
+        // 左侧:历史记录内容 (可点击加载)
         const content = document.createElement('div');
         content.className = 'flex-1 cursor-pointer';
         content.innerHTML = `
@@ -583,8 +588,51 @@ function renderHistory() {
             renderResults(item.results);
         });
 
+        // 右侧:删除按钮
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'text-gray-400 hover:text-red-400 transition-colors p-1';
+        deleteBtn.innerHTML = '<i class="ph-bold ph-trash text-lg"></i>';
+        deleteBtn.dataset.confirming = 'false';
+
+        // 删除按钮点击事件 (按钮内二次确认模式)
+        deleteBtn.addEventListener('click', (e) => {
+            // 关键:阻止事件冒泡,防止触发历史记录加载
+            e.stopPropagation();
+            e.preventDefault();
+
+            const btn = e.currentTarget;
+
+            if (btn.dataset.confirming === 'true') {
+                // === 第二次点击:执行删除 ===
+                const index = searchHistory.findIndex(h => h.id === item.id);
+                if (index !== -1) {
+                    searchHistory.splice(index, 1);
+                    selectedHistoryIds.delete(item.id);
+                    saveHistory();
+                    renderHistory();
+                }
+            } else {
+                // === 第一次点击:进入确认状态 ===
+                btn.dataset.confirming = 'true';
+                btn.classList.remove('text-gray-400', 'hover:text-red-400');
+                btn.classList.add('text-red-500');
+
+                // 3秒后自动恢复
+                setTimeout(() => {
+                    if (btn.dataset.confirming === 'true') {
+                        btn.dataset.confirming = 'false';
+                        btn.classList.remove('text-red-500');
+                        btn.classList.add('text-gray-400', 'hover:text-red-400');
+                    }
+                }, 3000);
+            }
+        });
+
+        contentWrapper.appendChild(content);
+        contentWrapper.appendChild(deleteBtn);
+
         div.appendChild(checkbox);
-        div.appendChild(content);
+        div.appendChild(contentWrapper);
         historyList.appendChild(div);
     });
 }
