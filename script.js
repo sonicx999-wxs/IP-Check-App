@@ -543,7 +543,7 @@ function renderResults(results) {
                         <i class="ph-bold ph-code"></i> 查看原始 API 响应
                         <i class="ph-bold ph-caret-down group-open:rotate-180 transition-transform"></i>
                     </summary>
-                    <pre class="mt-2 p-4 bg-dark-900 rounded-lg text-xs text-gray-400 overflow-x-auto font-mono">${JSON.stringify(data.rawData, null, 2)}</pre>
+                    <pre class="mt-2 p-4 bg-dark-900 rounded-lg text-xs text-gray-400 font-mono overflow-auto max-h-64 border border-white/5 custom-scrollbar">${JSON.stringify(data.rawData, null, 2)}</pre>
                 </details>
             </div>
         `;
