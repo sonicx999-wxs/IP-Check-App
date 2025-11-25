@@ -51,7 +51,13 @@ document.addEventListener('DOMContentLoaded', () => {
 checkBtn.addEventListener('click', handleCheck);
 historyToggle.addEventListener('click', toggleSidebar);
 closeHistory.addEventListener('click', closeSidebar);
-sidebarOverlay.addEventListener('click', closeSidebar);
+
+// 修复点1：只在点击遮罩层本身时关闭，防止冒泡误触
+sidebarOverlay.addEventListener('click', (e) => {
+    if (e.target === sidebarOverlay) {
+        closeSidebar();
+    }
+});
 
 // Settings Events
 settingsToggle.addEventListener('click', openSettings);
@@ -59,17 +65,52 @@ closeSettings.addEventListener('click', closeSettingsModal);
 settingsBackdrop.addEventListener('click', closeSettingsModal);
 saveSettingsBtn.addEventListener('click', saveSettings);
 
-clearHistory.addEventListener('click', () => {
-    if (confirm('确定要清空所有历史记录吗？')) {
+// 修复方案：放弃原生 confirm，改用按钮内二次确认
+// 解决 IDE 预览环境下弹窗闪退的问题
+clearHistory.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const btn = e.currentTarget;
+
+    // 检查按钮当前是否处于"待确认"状态
+    if (btn.dataset.confirming === 'true') {
+        // === 第二次点击：执行删除 ===
         searchHistory = [];
         selectedHistoryIds.clear();
         saveHistory();
         renderHistory();
+
+        // 恢复按钮到初始状态
+        resetClearButton(btn);
+    } else {
+        // === 第一次点击：进入确认状态 ===
+        btn.dataset.confirming = 'true';
+        const originalText = btn.innerHTML; // 保存原始图标和文字
+
+        // 改变样式为红色警示
+        btn.innerHTML = '<i class="ph-bold ph-warning"></i> 再次点击确认';
+        btn.classList.remove('text-red-400', 'hover:bg-red-400/10'); // 移除旧样式
+        btn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700'); // 添加醒目样式
+
+        // 设置 3 秒倒计时，如果不点就自动恢复
+        setTimeout(() => {
+            // 只有当按钮还在"待确认"状态时才恢复，防止已被删除逻辑重置
+            if (btn.dataset.confirming === 'true') {
+                resetClearButton(btn);
+            }
+        }, 3000);
     }
 });
 
-if (exportBtn) {
-    exportBtn.addEventListener('click', exportData);
+// 辅助函数：恢复清空按钮样式
+function resetClearButton(btn) {
+    btn.dataset.confirming = 'false';
+    btn.innerText = '清空历史'; // 或者恢复之前的图标
+
+    // 恢复回原本的幽灵按钮样式
+    btn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
+    btn.classList.add('text-red-400', 'hover:bg-red-400/10');
 }
 
 // --- Settings Logic ---

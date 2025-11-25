@@ -6,6 +6,18 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [1.3.2] - 2025-11-26
+
+### ✨ 优化改进 (Improvements)
+- **清空历史交互优化**: 采用"按钮内二次确认"模式替代原生confirm对话框
+  - 解决了IDE预览环境下confirm弹窗闪退的问题
+  - 提升用户体验：首次点击按钮变红并显示"再次点击确认"，3秒后自动恢复
+  - 更符合现代Web应用的交互规范，避免使用浏览器原生弹窗
+
+### 🐛 修复 (Fixes)
+- **HTML结构修复**: 清理了重复的DOCTYPE和head标签，修复文件结构问题
+- **事件冒泡处理**: 优化遮罩层点击逻辑，防止误触子元素导致侧边栏意外关闭
+
 ## [1.3.1] - 2025-11-25
 
 ### 🐛 修复 (Fixes)
