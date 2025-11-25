@@ -6,6 +6,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [1.4.2] - 2025-11-26
+
+### ✨ 新增功能 (New Features)
+- **清空输入按钮**: 在 IP 输入框右下角新增"清空"按钮,一键清空输入内容并自动聚焦
+- **清除配置按钮**: 在设置弹窗底部新增"清除配置"按钮,支持快速清空所有 API Key 配置(需二次确认)
+
+### 🎨 优化改进 (Improvements)
+- **UI 优化**: 输入区域按钮布局改为 Flex 横向排列,提升视觉层次感
+- **交互优化**: 清空输入后自动聚焦到输入框,提升操作流畅度
+
 ## [1.4.1] - 2025-11-26
 
 ### ✨ 优化改进 (Improvements)

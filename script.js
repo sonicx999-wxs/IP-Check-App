@@ -9,6 +9,7 @@ const getRiskLevel = (score) => {
 // DOM Elements
 const ipInput = document.getElementById('ipInput');
 const checkBtn = document.getElementById('checkBtn');
+const clearInputBtn = document.getElementById('clearInputBtn');
 const resultsArea = document.getElementById('resultsArea');
 const historyToggle = document.getElementById('historyToggle');
 const closeHistory = document.getElementById('closeHistory');
@@ -24,6 +25,7 @@ const settingsToggle = document.getElementById('settingsToggle');
 const settingsModal = document.getElementById('settingsModal');
 const closeSettings = document.getElementById('closeSettings');
 const saveSettingsBtn = document.getElementById('saveSettings');
+const clearSettingsBtn = document.getElementById('clearSettingsBtn');
 const keyIPQS = document.getElementById('keyIPQS');
 const keyIPinfo = document.getElementById('keyIPinfo');
 const userScam = document.getElementById('userScam');
@@ -51,6 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Listeners
 checkBtn.addEventListener('click', handleCheck);
+if (clearInputBtn) {
+    clearInputBtn.addEventListener('click', () => {
+        ipInput.value = '';
+        ipInput.focus();
+    });
+}
 historyToggle.addEventListener('click', toggleSidebar);
 closeHistory.addEventListener('click', closeSidebar);
 
@@ -68,6 +76,17 @@ settingsToggle.addEventListener('click', openSettings);
 closeSettings.addEventListener('click', closeSettingsModal);
 settingsBackdrop.addEventListener('click', closeSettingsModal);
 saveSettingsBtn.addEventListener('click', saveSettings);
+if (clearSettingsBtn) {
+    clearSettingsBtn.addEventListener('click', () => {
+        if (confirm('确定要清空输入框中的所有 API 配置信息吗？\n(操作后需点击"保存配置"才能永久生效)')) {
+            keyIPQS.value = '';
+            keyIPinfo.value = '';
+            userScam.value = '';
+            keyScam.value = '';
+            keyProxyCheck.value = '';
+        }
+    });
+}
 
 // 修复方案：放弃原生 confirm，改用按钮内二次确认
 // 解决 IDE 预览环境下弹窗闪退的问题
