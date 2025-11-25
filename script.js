@@ -62,6 +62,14 @@ if (clearInputBtn) {
     });
 }
 
+if (clearHistory) {
+    clearHistory.addEventListener('click', clearHistory);
+}
+
+if (exportBtn) {
+    exportBtn.addEventListener('click', exportData);
+}
+
 historyToggle.addEventListener('click', toggleSidebar);
 closeHistory.addEventListener('click', closeSidebar);
 
@@ -750,30 +758,45 @@ function exportData() {
         return;
     }
 
-    const exportRows = [];
-    const selectedItems = searchHistory.filter(item => selectedHistoryIds.has(item.id));
+    // Safety Check: SheetJS library
+    if (typeof XLSX === 'undefined') {
+        showToast('导出失败：Excel 组件(SheetJS) 未加载，请检查网络', 'error');
+        return;
+    }
 
-    selectedItems.forEach(item => {
-        if (item.results) {
-            item.results.forEach(res => {
-                exportRows.push({
-                    "查询时间": item.time,
-                    "IP地址": res.ip,
-                    "地理位置": res.location,
-                    "ASN": res.asn,
-                    "网络类型": res.type,
-                    "欺诈评分": res.fraudScore,
-                    "风险等级": res.riskLabel,
-                    "原始数据": JSON.stringify(res.rawData || {})
+    try {
+        const exportRows = [];
+        const selectedItems = searchHistory.filter(item => selectedHistoryIds.has(item.id));
+
+        selectedItems.forEach(item => {
+            if (item.results) {
+                item.results.forEach(res => {
+                    exportRows.push({
+                        "查询时间": item.time,
+                        "IP地址": res.ip,
+                        "地理位置": res.location,
+                        "ASN": res.asn,
+                        "网络类型": res.type,
+                        "欺诈评分": res.fraudScore,
+                        "风险等级": res.riskLabel,
+                        "结论": res.quality ? res.quality.verdict : '未知',
+                        "原始数据": JSON.stringify(res.rawData || {})
+                    });
                 });
-            });
-        }
-    });
+            }
+        });
 
-    const ws = XLSX.utils.json_to_sheet(exportRows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "IP检测报告");
-    XLSX.writeFile(wb, `IP_Report_${Date.now()}.xlsx`);
+        const ws = XLSX.utils.json_to_sheet(exportRows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "IP检测报告");
+        XLSX.writeFile(wb, `IP_Report_${Date.now()}.xlsx`);
+
+        showToast('导出成功！', 'success');
+
+    } catch (error) {
+        console.error("Export Error:", error);
+        showToast('导出过程中发生错误', 'error');
+    }
 }
 
 // Sidebar Toggle
