@@ -6,6 +6,22 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [1.5.0] - 2025-11-26
+
+### ✨ 新增功能 (New Features)
+- **Toast 通知系统**: 全面替换原生 `alert()` 弹窗,使用自定义 Toast 通知,避免 IDE 预览环境下的浏览器阻塞问题
+- **IP 地址验证**: 新增前端 IP 格式验证功能,支持 IPv4 和 IPv6,自动过滤无效输入,节省 API 配额
+- **智能提示优化**: 所有用户交互均使用 Toast 提示,包括清空输入、保存配置、删除记录等操作
+
+### 🎨 优化改进 (Improvements)
+- **交互体验**: 使用 Glassmorphism 风格的 Toast 通知,支持错误/成功/信息三种类型
+- **API Key 确认**: 将原生 `confirm()` 弹窗改为 Toast 提示,简化用户操作流程
+- **输入验证**: 实时验证 IP 格式,提前拦截无效输入,提升检测效率
+
+### 🐛 Bug 修复 (Bug Fixes)
+- **历史记录**: 修复历史记录管理函数缺失导致的保存失败问题
+- **错误提示**: 修复因函数缺失导致的误报"服务器连接失败"问题
+
 ## [1.4.2] - 2025-11-26
 
 ### ✨ 新增功能 (New Features)

@@ -53,12 +53,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Listeners
 checkBtn.addEventListener('click', handleCheck);
+
 if (clearInputBtn) {
     clearInputBtn.addEventListener('click', () => {
         ipInput.value = '';
         ipInput.focus();
+        showToast('输入框已清空', 'info');
     });
 }
+
 historyToggle.addEventListener('click', toggleSidebar);
 closeHistory.addEventListener('click', closeSidebar);
 
@@ -76,20 +79,46 @@ settingsToggle.addEventListener('click', openSettings);
 closeSettings.addEventListener('click', closeSettingsModal);
 settingsBackdrop.addEventListener('click', closeSettingsModal);
 saveSettingsBtn.addEventListener('click', saveSettings);
+
+// 修复：配置清除按钮 (使用双击确认模式，避免原生 confirm 被拦截)
 if (clearSettingsBtn) {
-    clearSettingsBtn.addEventListener('click', () => {
-        if (confirm('确定要清空输入框中的所有 API 配置信息吗？\n(操作后需点击"保存配置"才能永久生效)')) {
+    clearSettingsBtn.addEventListener('click', (e) => {
+        const btn = e.currentTarget;
+        if (btn.dataset.confirming === 'true') {
+            // === 执行清除 ===
             keyIPQS.value = '';
             keyIPinfo.value = '';
             userScam.value = '';
             keyScam.value = '';
             keyProxyCheck.value = '';
+
+            // 重置按钮状态
+            btn.dataset.confirming = 'false';
+            btn.innerHTML = '<i class="ph-bold ph-eraser"></i> 清除配置';
+            btn.classList.remove('text-red-600', 'bg-red-100');
+            btn.classList.add('text-red-400', 'hover:bg-red-400/10');
+
+            showToast('配置已清除 (需点击保存以生效)', 'success');
+        } else {
+            // === 进入确认状态 ===
+            btn.dataset.confirming = 'true';
+            btn.innerHTML = '<i class="ph-bold ph-warning"></i> 再次点击确认';
+            btn.classList.remove('text-red-400', 'hover:bg-red-400/10');
+            btn.classList.add('text-red-600', 'bg-red-100');
+
+            setTimeout(() => {
+                if (btn.dataset.confirming === 'true') {
+                    btn.dataset.confirming = 'false';
+                    btn.innerHTML = '<i class="ph-bold ph-eraser"></i> 清除配置';
+                    btn.classList.remove('text-red-600', 'bg-red-100');
+                    btn.classList.add('text-red-400', 'hover:bg-red-400/10');
+                }
+            }, 3000);
         }
     });
 }
 
 // 修复方案：放弃原生 confirm，改用按钮内二次确认
-// 解决 IDE 预览环境下弹窗闪退的问题
 if (clearHistory) {
     clearHistory.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -107,6 +136,7 @@ if (clearHistory) {
 
             // 恢复按钮到初始状态
             resetClearButton(btn);
+            showToast('历史记录已清空', 'success');
         } else {
             // === 第一次点击：进入确认状态 ===
             btn.dataset.confirming = 'true';
@@ -181,6 +211,8 @@ function saveSettings() {
     const originalText = saveSettingsBtn.innerText;
     saveSettingsBtn.innerText = '已保存!';
     saveSettingsBtn.classList.add('bg-green-600');
+    showToast('API 配置已保存', 'success');
+
     setTimeout(() => {
         saveSettingsBtn.innerText = originalText;
         saveSettingsBtn.classList.remove('bg-green-600');
@@ -195,7 +227,6 @@ const PROXY_BASE = 'http://localhost:5000/api';
 async function fetchIPQS(ip) {
     if (!apiKeys.ipqs) return null;
     try {
-        // Use Proxy
         const url = `${PROXY_BASE}/ipqs?key=${apiKeys.ipqs}&ip=${ip}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('IPQS Request Failed');
@@ -209,7 +240,6 @@ async function fetchIPQS(ip) {
 async function fetchIPinfo(ip) {
     if (!apiKeys.ipinfo) return null;
     try {
-        // Use Proxy
         const url = `${PROXY_BASE}/ipinfo?key=${apiKeys.ipinfo}&ip=${ip}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('IPinfo Request Failed');
@@ -223,7 +253,6 @@ async function fetchIPinfo(ip) {
 async function fetchScamalytics(ip) {
     if (!apiKeys.scamUser || !apiKeys.scamKey) return null;
     try {
-        // Use Proxy
         const url = `${PROXY_BASE}/scamalytics?user=${apiKeys.scamUser}&key=${apiKeys.scamKey}&ip=${ip}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Scamalytics Request Failed');
@@ -250,13 +279,46 @@ async function fetchProxyCheck(ip) {
     }
 }
 
+// --- Validation Logic ---
+
+function isValidIP(ip) {
+    // IPv4 Regex
+    const ipv4Pattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    // IPv6 Regex
+    const ipv6Pattern = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+
+    return ipv4Pattern.test(ip) || ipv6Pattern.test(ip);
+}
+
 // --- Main Logic ---
 
 async function handleCheck() {
     const rawInput = ipInput.value.trim();
     if (!rawInput) {
-        alert('请输入 IP 地址');
+        showToast('请输入 IP 地址', 'error');
         return;
+    }
+
+    // Input Validation & Filtering
+    const rawList = rawInput.split(/[\n,]+/).map(ip => ip.trim()).filter(ip => ip);
+    const validIPs = [];
+    const invalidIPs = [];
+
+    rawList.forEach(ip => {
+        if (isValidIP(ip)) {
+            validIPs.push(ip);
+        } else {
+            invalidIPs.push(ip);
+        }
+    });
+
+    if (validIPs.length === 0) {
+        showToast('请输入有效的 IPv4 或 IPv6 地址', 'error');
+        return;
+    }
+
+    if (invalidIPs.length > 0) {
+        showToast(`已自动过滤 ${invalidIPs.length} 个无效格式 IP`, 'info');
     }
 
     // Loading State
@@ -265,9 +327,6 @@ async function handleCheck() {
     checkBtn.disabled = true;
 
     try {
-        const ips = rawInput.split(/[\n,]+/).map(ip => ip.trim()).filter(ip => ip);
-        if (ips.length === 0) return;
-
         // Check if any keys are missing
         const missingKeys = [];
         if (!apiKeys.ipqs) missingKeys.push('IPQualityScore');
@@ -276,14 +335,12 @@ async function handleCheck() {
         if (!apiKeys.proxyCheck) missingKeys.push('ProxyCheck.io');
 
         if (missingKeys.length === 4) {
-            if (!confirm('未配置任何 API Key，将使用模拟数据演示。是否继续？\n(请点击右上角设置图标配置 Key)')) {
-                return;
-            }
+            showToast('未配置任何 API Key，将使用模拟数据演示', 'info');
         }
 
         const results = [];
 
-        for (const ip of ips) {
+        for (const ip of validIPs) {
             // Parallel Fetch
             const [ipqsRes, ipinfoRes, scamRes, proxyCheckRes] = await Promise.allSettled([
                 fetchIPQS(ip),
@@ -303,11 +360,11 @@ async function handleCheck() {
         }
 
         renderResults(results);
-        addToHistory(ips, results);
+        addToHistory(validIPs, results);
 
     } catch (error) {
         console.error("检测IP时发生错误:", error);
-        alert("检测过程中发生错误，请重试。");
+        showToast('检测服务连接失败，请检查后端或网络', 'error');
     } finally {
         checkBtn.innerHTML = originalBtnContent;
         checkBtn.disabled = false;
@@ -422,7 +479,6 @@ function analyzeData(ip, ipqs, ipinfo, scam, proxyCheck) {
         quality.verdict = quality.isDatacenter ? '❌ 不推荐' : '✅ 看起来良好';
     }
 
-    // --- 修复点：正确闭合对象和函数 ---
     return {
         ip,
         location,
@@ -570,7 +626,8 @@ function renderResults(results) {
     });
 }
 
-// History Management
+// --- History Management ---
+
 function addToHistory(ips, results) {
     const timestamp = new Date().toLocaleString('zh-CN');
     const newIpSignature = [...ips].sort().join(',');
@@ -579,6 +636,7 @@ function addToHistory(ips, results) {
         const itemSignature = [...item.ips].sort().join(',');
         return itemSignature === newIpSignature;
     });
+
     if (existingIndex !== -1) {
         searchHistory.splice(existingIndex, 1);
     }
@@ -589,6 +647,7 @@ function addToHistory(ips, results) {
         results: results,
         time: timestamp
     };
+
     searchHistory.unshift(entry);
     if (searchHistory.length > 20) searchHistory.pop();
     saveHistory();
@@ -622,11 +681,9 @@ function renderHistory() {
             }
         });
 
-        // 内容区域容器 (使用 Flexbox 布局)
         const contentWrapper = document.createElement('div');
         contentWrapper.className = 'flex-1 flex items-center justify-between gap-2';
 
-        // 左侧:历史记录内容 (可点击加载)
         const content = document.createElement('div');
         content.className = 'flex-1 cursor-pointer';
         content.innerHTML = `
@@ -640,40 +697,34 @@ function renderHistory() {
         content.addEventListener('click', () => {
             ipInput.value = item.ips.join('\n');
             closeSidebar();
-            // Directly render cached results instead of re-checking
             renderResults(item.results);
         });
 
-        // 右侧:删除按钮
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'text-gray-400 hover:text-red-400 transition-colors p-1';
         deleteBtn.innerHTML = '<i class="ph-bold ph-trash text-lg"></i>';
         deleteBtn.dataset.confirming = 'false';
 
-        // 删除按钮点击事件 (按钮内二次确认模式)
         deleteBtn.addEventListener('click', (e) => {
-            // 关键:阻止事件冒泡,防止触发历史记录加载
             e.stopPropagation();
             e.preventDefault();
 
             const btn = e.currentTarget;
 
             if (btn.dataset.confirming === 'true') {
-                // === 第二次点击:执行删除 ===
                 const index = searchHistory.findIndex(h => h.id === item.id);
                 if (index !== -1) {
                     searchHistory.splice(index, 1);
                     selectedHistoryIds.delete(item.id);
                     saveHistory();
                     renderHistory();
+                    showToast('已删除该历史记录', 'success');
                 }
             } else {
-                // === 第一次点击:进入确认状态 ===
                 btn.dataset.confirming = 'true';
                 btn.classList.remove('text-gray-400', 'hover:text-red-400');
                 btn.classList.add('text-red-500');
 
-                // 3秒后自动恢复
                 setTimeout(() => {
                     if (btn.dataset.confirming === 'true') {
                         btn.dataset.confirming = 'false';
@@ -695,7 +746,7 @@ function renderHistory() {
 
 function exportData() {
     if (selectedHistoryIds.size === 0) {
-        alert('请至少选择一条记录进行导出。');
+        showToast('请先勾选需要导出的历史记录', 'info');
         return;
     }
 
@@ -750,4 +801,36 @@ function closeSidebar() {
         sidebarOverlay.classList.remove('opacity-100');
         setTimeout(() => sidebarOverlay.classList.add('hidden'), 300);
     }
+}
+
+// --- Toast Notification System ---
+function showToast(message, type = 'error') {
+    const toast = document.createElement('div');
+
+    let iconClass, bgColor;
+    if (type === 'error') {
+        iconClass = 'ph-warning-circle';
+        bgColor = 'bg-red-500/90';
+    } else if (type === 'success') {
+        iconClass = 'ph-check-circle';
+        bgColor = 'bg-green-500/90';
+    } else if (type === 'info') {
+        iconClass = 'ph-info';
+        bgColor = 'bg-blue-500/90';
+    }
+
+    toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-[100] ${bgColor} text-white backdrop-blur-md border border-white/20 rounded-lg shadow-2xl px-6 py-3 font-medium flex items-center gap-2 animate-[fadeIn_0.3s_ease-out]`;
+
+    toast.innerHTML = `
+        <i class="ph-bold ${iconClass} text-xl"></i>
+        <span>${message}</span>
+    `;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
