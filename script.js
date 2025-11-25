@@ -28,6 +28,7 @@ const keyIPQS = document.getElementById('keyIPQS');
 const keyIPinfo = document.getElementById('keyIPinfo');
 const userScam = document.getElementById('userScam');
 const keyScam = document.getElementById('keyScam');
+const keyProxyCheck = document.getElementById('keyProxyCheck');
 const settingsBackdrop = document.getElementById('settingsBackdrop');
 const settingsContent = document.getElementById('settingsContent');
 
@@ -38,7 +39,8 @@ let apiKeys = JSON.parse(localStorage.getItem('ip_check_api_keys')) || {
     ipqs: '',
     ipinfo: '',
     scamUser: '',
-    scamKey: ''
+    scamKey: '',
+    proxyCheck: ''
 };
 
 // Initialization
@@ -53,11 +55,13 @@ historyToggle.addEventListener('click', toggleSidebar);
 closeHistory.addEventListener('click', closeSidebar);
 
 // 修复点1：只在点击遮罩层本身时关闭，防止冒泡误触
-sidebarOverlay.addEventListener('click', (e) => {
-    if (e.target === sidebarOverlay) {
-        closeSidebar();
-    }
-});
+if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', (e) => {
+        if (e.target === sidebarOverlay) {
+            closeSidebar();
+        }
+    });
+}
 
 // Settings Events
 settingsToggle.addEventListener('click', openSettings);
@@ -67,41 +71,42 @@ saveSettingsBtn.addEventListener('click', saveSettings);
 
 // 修复方案：放弃原生 confirm，改用按钮内二次确认
 // 解决 IDE 预览环境下弹窗闪退的问题
-clearHistory.addEventListener('click', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
+if (clearHistory) {
+    clearHistory.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
 
-    const btn = e.currentTarget;
+        const btn = e.currentTarget;
 
-    // 检查按钮当前是否处于"待确认"状态
-    if (btn.dataset.confirming === 'true') {
-        // === 第二次点击：执行删除 ===
-        searchHistory = [];
-        selectedHistoryIds.clear();
-        saveHistory();
-        renderHistory();
+        // 检查按钮当前是否处于"待确认"状态
+        if (btn.dataset.confirming === 'true') {
+            // === 第二次点击：执行删除 ===
+            searchHistory = [];
+            selectedHistoryIds.clear();
+            saveHistory();
+            renderHistory();
 
-        // 恢复按钮到初始状态
-        resetClearButton(btn);
-    } else {
-        // === 第一次点击：进入确认状态 ===
-        btn.dataset.confirming = 'true';
-        const originalText = btn.innerHTML; // 保存原始图标和文字
+            // 恢复按钮到初始状态
+            resetClearButton(btn);
+        } else {
+            // === 第一次点击：进入确认状态 ===
+            btn.dataset.confirming = 'true';
 
-        // 改变样式为红色警示
-        btn.innerHTML = '<i class="ph-bold ph-warning"></i> 再次点击确认';
-        btn.classList.remove('text-red-400', 'hover:bg-red-400/10'); // 移除旧样式
-        btn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700'); // 添加醒目样式
+            // 改变样式为红色警示
+            btn.innerHTML = '<i class="ph-bold ph-warning"></i> 再次点击确认';
+            btn.classList.remove('text-red-400', 'hover:bg-red-400/10'); // 移除旧样式
+            btn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700'); // 添加醒目样式
 
-        // 设置 3 秒倒计时，如果不点就自动恢复
-        setTimeout(() => {
-            // 只有当按钮还在"待确认"状态时才恢复，防止已被删除逻辑重置
-            if (btn.dataset.confirming === 'true') {
-                resetClearButton(btn);
-            }
-        }, 3000);
-    }
-});
+            // 设置 3 秒倒计时，如果不点就自动恢复
+            setTimeout(() => {
+                // 只有当按钮还在"待确认"状态时才恢复，防止已被删除逻辑重置
+                if (btn.dataset.confirming === 'true') {
+                    resetClearButton(btn);
+                }
+            }, 3000);
+        }
+    });
+}
 
 // 辅助函数：恢复清空按钮样式
 function resetClearButton(btn) {
@@ -120,6 +125,7 @@ function loadSettingsUI() {
     keyIPinfo.value = apiKeys.ipinfo || '';
     userScam.value = apiKeys.scamUser || '';
     keyScam.value = apiKeys.scamKey || '';
+    keyProxyCheck.value = apiKeys.proxyCheck || '';
 }
 
 function openSettings() {
@@ -147,7 +153,8 @@ function saveSettings() {
         ipqs: keyIPQS.value.trim(),
         ipinfo: keyIPinfo.value.trim(),
         scamUser: userScam.value.trim(),
-        scamKey: keyScam.value.trim()
+        scamKey: keyScam.value.trim(),
+        proxyCheck: keyProxyCheck.value.trim()
     };
     localStorage.setItem('ip_check_api_keys', JSON.stringify(apiKeys));
 
@@ -208,6 +215,22 @@ async function fetchScamalytics(ip) {
     }
 }
 
+async function fetchProxyCheck(ip) {
+    if (!apiKeys.proxyCheck) return null;
+    try {
+        const response = await fetch(`${PROXY_BASE}/proxycheck`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip: ip, api_key: apiKeys.proxyCheck })
+        });
+        if (!response.ok) throw new Error('ProxyCheck Request Failed');
+        return await response.json();
+    } catch (e) {
+        console.warn('ProxyCheck Error:', e);
+        return { error: e.message };
+    }
+}
+
 // --- Main Logic ---
 
 async function handleCheck() {
@@ -231,8 +254,9 @@ async function handleCheck() {
         if (!apiKeys.ipqs) missingKeys.push('IPQualityScore');
         if (!apiKeys.ipinfo) missingKeys.push('IPinfo');
         if (!apiKeys.scamUser || !apiKeys.scamKey) missingKeys.push('Scamalytics');
+        if (!apiKeys.proxyCheck) missingKeys.push('ProxyCheck.io');
 
-        if (missingKeys.length === 3) {
+        if (missingKeys.length === 4) {
             if (!confirm('未配置任何 API Key，将使用模拟数据演示。是否继续？\n(请点击右上角设置图标配置 Key)')) {
                 return;
             }
@@ -242,18 +266,20 @@ async function handleCheck() {
 
         for (const ip of ips) {
             // Parallel Fetch
-            const [ipqsRes, ipinfoRes, scamRes] = await Promise.allSettled([
+            const [ipqsRes, ipinfoRes, scamRes, proxyCheckRes] = await Promise.allSettled([
                 fetchIPQS(ip),
                 fetchIPinfo(ip),
-                fetchScamalytics(ip)
+                fetchScamalytics(ip),
+                fetchProxyCheck(ip)
             ]);
 
             const dataIPQS = ipqsRes.status === 'fulfilled' ? ipqsRes.value : null;
             const dataIPinfo = ipinfoRes.status === 'fulfilled' ? ipinfoRes.value : null;
             const dataScam = scamRes.status === 'fulfilled' ? scamRes.value : null;
+            const dataProxyCheck = proxyCheckRes.status === 'fulfilled' ? proxyCheckRes.value : null;
 
             // Analyze & Merge Data
-            const analyzed = analyzeData(ip, dataIPQS, dataIPinfo, dataScam);
+            const analyzed = analyzeData(ip, dataIPQS, dataIPinfo, dataScam, dataProxyCheck);
             results.push(analyzed);
         }
 
@@ -269,120 +295,130 @@ async function handleCheck() {
     }
 }
 
-function analyzeData(ip, ipqs, ipinfo, scam) {
-    // 1. Determine Location (Priority: IPinfo > IPQS > Mock)
+function analyzeData(ip, ipqs, ipinfo, scam, proxyCheck) {
+    // 1. Determine Location
     let location = '未知位置';
-    let city = '';
-    let country = '';
-
-    if (ipinfo && !ipinfo.error) {
-        city = ipinfo.city || '';
-        country = ipinfo.country || ''; // IPinfo returns country code usually
-        location = `${country} ${city}`.trim();
-    } else if (ipqs && ipqs.success) {
-        city = ipqs.city || '';
-        country = ipqs.country_code || '';
-        location = `${country} ${city}`.trim();
+    if (ipqs && ipqs.success) {
+        location = `${ipqs.country_code || ''} ${ipqs.city || ''} ${ipqs.region || ''}`.trim();
+    } else if (ipinfo && !ipinfo.error) {
+        location = `${ipinfo.country || ''} ${ipinfo.city || ''} ${ipinfo.region || ''}`.trim();
+    } else if (proxyCheck && proxyCheck[ip]) {
+        location = `${proxyCheck[ip].iso || ''} ${proxyCheck[ip].city || ''} ${proxyCheck[ip].region || ''}`.trim();
+    } else if (scam && scam.ip) {
+        location = `${scam.country || ''}`;
     }
-
-    if (!location || location === ' ') location = '未知位置 (无数据)';
 
     // 2. Determine ASN/ISP
     let asn = '未知 ISP';
-    if (ipinfo && !ipinfo.error && ipinfo.org) {
-        asn = ipinfo.org;
-    } else if (ipqs && ipqs.success && ipqs.ISP) {
-        asn = `${ipqs.ASN || ''} ${ipqs.ISP}`;
-    }
+    if (ipqs && ipqs.success) asn = ipqs.ISP || ipqs.ASN || asn;
+    else if (ipinfo && !ipinfo.error) asn = ipinfo.org || asn;
+    else if (proxyCheck && proxyCheck[ip]) asn = proxyCheck[ip].provider || proxyCheck[ip].asn || asn;
+    else if (scam && scam.ip) asn = scam.isp || asn;
 
-    // 3. Determine Type
+    // 3. Determine Type (Refined Logic)
     let type = '未知类型';
-    if (ipqs && ipqs.success) {
-        if (ipqs.mobile) type = '移动网络';
-        else if (ipqs.proxy) type = '代理/VPN';
-        else if (ipqs.vpn) type = 'VPN';
-        else if (ipqs.tor) type = 'Tor节点';
-        else if (ipqs.active_vpn) type = '活跃VPN';
-        else type = 'ISP/宽带';
+
+    // Data Extraction
+    const pc = (proxyCheck && proxyCheck[ip]) ? proxyCheck[ip] : null;
+    const pcType = pc ? (pc.type || 'unknown') : null;
+    const isPcProxy = pc ? (pc.proxy === 'yes') : false;
+    const isIpqsProxy = (ipqs && ipqs.success) ? (ipqs.proxy || ipqs.vpn || ipqs.tor || ipqs.active_vpn) : false;
+
+    // Priority 1: ProxyCheck Type
+    if (pcType && pcType !== 'unknown') {
+        const typeMap = {
+            'Residential': '🏠 住宅宽带',
+            'Wireless': '📱 移动网络',
+            'Business': '🏢 商业/专线',
+            'Hosting': '❌ 机房/托管',
+            'ISP': '🌐 固网宽带',
+            'VPN': '❌ VPN',
+            'Education': '⚠️ 教育网'
+        };
+        type = typeMap[pcType] || pcType;
+    }
+    // Priority 2: Fallback to IPQS/IPinfo
+    else if (ipqs && ipqs.success) {
+        if (ipqs.mobile) type = '📱 移动网络';
+        else if (ipqs.proxy || ipqs.vpn || ipqs.tor || ipqs.active_vpn) type = '❌ 代理/VPN';
+        else type = '🌐 ISP/宽带';
     } else if (ipinfo && !ipinfo.error && ipinfo.privacy) {
-        if (ipinfo.privacy.vpn) type = 'VPN';
-        else if (ipinfo.privacy.proxy) type = '代理';
-        else if (ipinfo.privacy.hosting) type = '数据中心';
+        if (ipinfo.privacy.vpn) type = '❌ VPN';
+        else if (ipinfo.privacy.proxy) type = '❌ 代理';
+        else if (ipinfo.privacy.hosting) type = '❌ 数据中心';
     }
 
-    // 4. Calculate Fraud Score (Max of available scores)
-    let score = 0;
-    let sources = 0;
-
-    if (ipqs && ipqs.success) {
-        score = Math.max(score, ipqs.fraud_score || 0);
-        sources++;
-    }
-    if (scam && !scam.error && scam.scamalytics) {
-        score = Math.max(score, scam.scamalytics.score || 0); // Scamalytics uses 'score' or 'scamalytics_score'
-        sources++;
+    // Append Risk Context
+    if ((isIpqsProxy || isPcProxy) && !type.includes('机房') && !type.includes('代理') && !type.includes('VPN') && !type.includes('托管')) {
+        type += ' (疑似代理)';
     }
 
-    // Fallback to mock if no API data
-    if (sources === 0) {
-        score = getRandomScore(); // Mock score
-        location = location === '未知位置 (无数据)' ? '模拟位置 (无Key)' : location;
+    // 4. Calculate Fraud Score
+    let fraudScore = 0;
+    if (ipqs && ipqs.success) fraudScore = Math.max(fraudScore, ipqs.fraud_score || 0);
+    if (scam && scam.score) fraudScore = Math.max(fraudScore, scam.score || 0);
+    if (pc && pc.risk) fraudScore = Math.max(fraudScore, parseInt(pc.risk) || 0);
+
+    if (isPcProxy || isIpqsProxy) {
+        fraudScore = Math.max(fraudScore, 85);
     }
 
-    const risk = getRiskLevel(score);
+    if (!ipqs && !ipinfo && !scam && !pc) {
+        fraudScore = getRandomScore();
+    }
 
-    // 5. TikTok-Specific Quality Metrics
-    const hasValidScam = scam && !scam.error && scam.scamalytics;
-    const hasValidIPQS = ipqs && !ipqs.error && ipqs.success;
+    const { label, color, bg } = getRiskLevel(fraudScore);
 
+    // 5. TikTok Quality Assessment
     const quality = {
-        isDatacenter: false,
-        isMobile: false,
-        hasRecentAbuse: false,
-        isCrawler: false,
-        isBlacklisted: false,
-        ispRisk: 'unknown',
+        isValid: !!(ipqs || ipinfo || scam || pc),
+        isDatacenter: type.includes('机房') || type.includes('Hosting') || type.includes('数据中心'),
+        isMobile: type.includes('移动') || type.includes('Wireless') || (ipqs && ipqs.mobile),
+        hasRecentAbuse: (ipqs && ipqs.recent_abuse) || (pc && pc.risk > 50),
+        isCrawler: (ipqs && ipqs.bot_status) || (ipinfo && ipinfo.privacy && ipinfo.privacy.crawler),
+        isBlacklisted: (ipqs && ipqs.blacklisted) || (scam && scam.score > 75),
+        ispRisk: 'low',
         specialService: [],
-        isValid: hasValidScam || hasValidIPQS
+        verdict: '未知',
+        providerName: asn
     };
 
-    // Extract from Scamalytics
-    if (hasValidScam) {
-        const scamProxy = scam.scamalytics.scamalytics_proxy;
-        if (scamProxy) {
-            quality.isDatacenter = scamProxy.is_datacenter || false;
+    if (quality.isDatacenter) quality.ispRisk = 'high';
+    else if (fraudScore > 75) quality.ispRisk = 'high';
+    else if (fraudScore > 30) quality.ispRisk = 'medium';
 
-            // Special services detection
-            if (scamProxy.is_amazon_aws) quality.specialService.push('AWS');
-            if (scamProxy.is_google) quality.specialService.push('Google');
-            if (scamProxy.is_apple_icloud_private_relay) quality.specialService.push('iCloud');
-        }
+    if (ipinfo && ipinfo.privacy && ipinfo.privacy.tor) quality.specialService.push('Tor');
+    if (ipinfo && ipinfo.privacy && ipinfo.privacy.relay) quality.specialService.push('Relay');
 
-        quality.ispRisk = scam.scamalytics.scamalytics_isp_risk || 'unknown';
-        quality.isBlacklisted = scam.scamalytics.is_blacklisted_external || false;
+    if (pcType === 'Business' && !isPcProxy) {
+        quality.verdict = '⚠️ 商业 IP (需养号)';
+        quality.isDatacenter = false;
+    } else if ((pcType === 'Residential' || pcType === 'Wireless') && !isPcProxy) {
+        quality.verdict = '✅ 适合 TikTok';
+        quality.isDatacenter = false;
+    } else if (pcType === 'Hosting' || isPcProxy || isIpqsProxy) {
+        quality.verdict = '❌ 禁止使用 (机房/代理)';
+        quality.isDatacenter = true;
+    } else {
+        quality.verdict = quality.isDatacenter ? '❌ 不推荐' : '✅ 看起来良好';
     }
 
-    // Extract from IPQS
-    if (hasValidIPQS) {
-        quality.isMobile = ipqs.mobile || false;
-        quality.hasRecentAbuse = ipqs.recent_abuse || false;
-        quality.isCrawler = ipqs.is_crawler || ipqs.bot_status || false;
-    }
-
+    // --- 修复点：正确闭合对象和函数 ---
     return {
-        ip: ip,
-        location: location,
-        asn: asn,
-        type: type,
-        fraudScore: score,
-        riskLabel: risk.label,
-        riskColor: risk.color,
-        riskBg: risk.bg,
-        quality: quality,
+        ip,
+        location,
+        asn,
+        type,
+        fraudScore,
+        riskLabel: label,
+        riskColor: color,
+        riskBg: bg,
+        quality,
         rawData: {
             ipqs: ipqs,
             ipinfo: ipinfo,
-            scamalytics: scam
+            scamalytics: scam,
+            proxycheck: pc
         }
     };
 }
@@ -395,7 +431,7 @@ function renderResults(results) {
         card.className = 'glass-panel rounded-xl p-6 animate-[fadeIn_0.5s_ease-out]';
 
         // Check if we have real data or mock
-        const isMock = !data.rawData.ipqs && !data.rawData.ipinfo && !data.rawData.scamalytics;
+        const isMock = !data.rawData.ipqs && !data.rawData.ipinfo && !data.rawData.scamalytics && !data.rawData.proxycheck;
         const mockBadge = isMock ? `<span class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded ml-2">模拟数据</span>` : '';
 
         card.innerHTML = `
@@ -437,6 +473,7 @@ function renderResults(results) {
                         <span class="text-xs px-2 py-0.5 rounded ${data.rawData.ipqs && !data.rawData.ipqs.error ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">IPQS</span>
                         <span class="text-xs px-2 py-0.5 rounded ${data.rawData.ipinfo && !data.rawData.ipinfo.error ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">IPinfo</span>
                         <span class="text-xs px-2 py-0.5 rounded ${data.rawData.scamalytics && !data.rawData.scamalytics.error ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">Scam</span>
+                        <span class="text-xs px-2 py-0.5 rounded ${data.rawData.proxycheck && !data.rawData.proxycheck.error ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">PC.io</span>
                     </div>
                 </div>
             </div>
@@ -447,11 +484,18 @@ function renderResults(results) {
                     <i class="ph-fill ph-shield-check"></i> IP质量评估 (TikTok运营专用)
                 </h4>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <!-- TikTok Verdict -->
+                    <div class="flex items-center gap-2 text-xs col-span-2 md:col-span-4 mb-2">
+                        <span class="px-3 py-1.5 rounded-md font-bold text-sm bg-white/10 border border-white/20 text-white w-full text-center">
+                            结论: ${data.quality.verdict}
+                        </span>
+                    </div>
+
                     ${data.quality && data.quality.isValid ? `
                         <div class="flex items-center gap-2 text-xs">
                             ${data.quality.isDatacenter
                     ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-400">❌ 数据中心</span>'
-                    : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-400">✅ 住宅IP</span>'
+                    : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-400">✅ 住宅/物理</span>'
                 }
                         </div>
                         <div class="flex items-center gap-2 text-xs">
@@ -464,12 +508,6 @@ function renderResults(results) {
                             ${data.quality.hasRecentAbuse
                     ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-400">⚠️ 有滥用</span>'
                     : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-400">✅ 无滥用</span>'
-                }
-                        </div>
-                        <div class="flex items-center gap-2 text-xs">
-                            ${data.quality.isCrawler
-                    ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-400">🤖 爬虫IP</span>'
-                    : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-400">✅ 非爬虫</span>'
                 }
                         </div>
                         <div class="flex items-center gap-2 text-xs">
@@ -522,7 +560,6 @@ function addToHistory(ips, results) {
         const itemSignature = [...item.ips].sort().join(',');
         return itemSignature === newIpSignature;
     });
-
     if (existingIndex !== -1) {
         searchHistory.splice(existingIndex, 1);
     }

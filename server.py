@@ -49,6 +49,27 @@ def proxy_scamalytics():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/proxycheck', methods=['POST'])
+def proxy_check():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Missing JSON body'}), 400
+        
+    key = data.get('api_key')
+    ip = data.get('ip')
+    
+    if not key or not ip:
+        return jsonify({'error': 'Missing api_key or ip'}), 400
+        
+    # Construct URL with required flags: vpn=1, asn=1, risk=1, info=1
+    url = f"http://proxycheck.io/v2/{ip}?key={key}&vpn=1&asn=1&risk=1&info=1"
+    
+    try:
+        resp = requests.get(url)
+        return jsonify(resp.json()), resp.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     print("Starting Proxy Server on http://localhost:5000")
     app.run(debug=True, port=5000)
