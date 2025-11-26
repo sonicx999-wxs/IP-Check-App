@@ -138,11 +138,18 @@
             <!-- History items -->
         </div>
         <div class="p-4 border-t border-white/10 bg-dark-900/50 space-y-3">
-            <button id="exportBtn"
-                class="w-full py-2 text-sm bg-brand-600 hover:bg-brand-500 text-white rounded-lg transition-colors flex items-center justify-center gap-2">
-                <i class="ph-bold ph-microsoft-excel-logo"></i> 导出选中记录
-            </button>
-            <!-- 修复点：添加 type="button" -->
+            <!-- 导出按钮组 -->
+            <div class="grid grid-cols-2 gap-2">
+                <button id="exportBtn"
+                    class="py-2 text-sm bg-brand-600 hover:bg-brand-500 text-white rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-microsoft-excel-logo"></i> 导出 Excel
+                </button>
+                <button id="copyCsvBtn"
+                    class="py-2 text-sm bg-dark-700 hover:bg-dark-600 text-gray-200 rounded-lg transition-colors flex items-center justify-center gap-2 border border-white/10">
+                    <i class="ph-bold ph-copy"></i> 复制 CSV
+                </button>
+            </div>
+            <!-- 清空历史按钮 -->
             <button id="clearHistory" type="button"
                 class="w-full py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors">
                 清空历史

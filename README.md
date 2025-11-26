@@ -1,7 +1,7 @@
 # IP Intelligence - 专业 IP 检测工具
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-1.5.0-green.svg)
+![Version](https://img.shields.io/badge/version-1.5.1-green.svg)
 
 一款现代化、高性能的 IP 地址检测与分析 Web 应用。专注于美学设计（"玻璃拟态 Glassmorphism"）与极致的用户体验。
 

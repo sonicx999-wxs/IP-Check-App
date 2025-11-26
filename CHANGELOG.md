@@ -6,6 +6,20 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [1.5.1] - 2025-11-26
+
+### ✨ 新增功能 (New Features)
+- **复制 CSV 功能**: 新增"复制 CSV"按钮,支持将历史记录复制到剪贴板,解决 IDE 环境下文件下载受限问题
+- **一键粘贴到 Excel**: 复制的 CSV 数据可直接粘贴到 Excel、Google Sheets 等工具
+
+### 🎨 优化改进 (Improvements)
+- **导出按钮布局**: 将"导出 Excel"和"复制 CSV"按钮并排显示,提升操作便捷性
+- **IPQS 数据清洗**: 自动过滤 IPQS 免费版 API 返回的付费提示字段(`abuse_events`, `abuse_velocity`),避免干扰数据展示
+- **导出数据增强**: Excel 导出新增"结论"字段,并添加 SheetJS 库加载检测和错误处理
+
+### 🐛 Bug 修复 (Bug Fixes)
+- **滥用记录判断**: 修复 `hasRecentAbuse` 字段的布尔值判断逻辑,避免误判
+
 ## [1.5.0] - 2025-11-26
 
 ### ✨ 新增功能 (New Features)

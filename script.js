@@ -19,6 +19,7 @@ const sidebarOverlay = document.getElementById('sidebarOverlay');
 const historyList = document.getElementById('historyList');
 const clearHistory = document.getElementById('clearHistory');
 const exportBtn = document.getElementById('exportBtn');
+const copyCsvBtn = document.getElementById('copyCsvBtn');
 
 // Settings DOM
 const settingsToggle = document.getElementById('settingsToggle');
@@ -68,6 +69,10 @@ if (clearHistory) {
 
 if (exportBtn) {
     exportBtn.addEventListener('click', exportData);
+}
+
+if (copyCsvBtn) {
+    copyCsvBtn.addEventListener('click', copyHistoryToClipboard);
 }
 
 historyToggle.addEventListener('click', toggleSidebar);
@@ -458,7 +463,7 @@ function analyzeData(ip, ipqs, ipinfo, scam, proxyCheck) {
         isValid: !!(ipqs || ipinfo || scam || pc),
         isDatacenter: type.includes('机房') || type.includes('Hosting') || type.includes('数据中心'),
         isMobile: type.includes('移动') || type.includes('Wireless') || (ipqs && ipqs.mobile),
-        hasRecentAbuse: (ipqs && ipqs.recent_abuse) || (pc && pc.risk > 50),
+        hasRecentAbuse: (ipqs && ipqs.recent_abuse === true) || (pc && pc.risk > 50),
         isCrawler: (ipqs && ipqs.bot_status) || (ipinfo && ipinfo.privacy && ipinfo.privacy.crawler),
         isBlacklisted: (ipqs && ipqs.blacklisted) || (scam && scam.score > 75),
         ispRisk: 'low',
@@ -485,6 +490,20 @@ function analyzeData(ip, ipqs, ipinfo, scam, proxyCheck) {
         quality.isDatacenter = true;
     } else {
         quality.verdict = quality.isDatacenter ? '❌ 不推荐' : '✅ 看起来良好';
+    }
+
+    // ==========================================
+    // [新增] 手动清洗 IPQS 免费版的无效提示字段
+    // ==========================================
+    if (ipqs) {
+        // 如果 abuse_events 包含 "Enterprise plan..."，直接删除该字段
+        if (ipqs.abuse_events && Array.isArray(ipqs.abuse_events) && ipqs.abuse_events[0] && ipqs.abuse_events[0].includes('Enterprise')) {
+            delete ipqs.abuse_events;
+        }
+        // 如果 abuse_velocity 包含 "Premium"，直接删除
+        if (ipqs.abuse_velocity && typeof ipqs.abuse_velocity === 'string' && ipqs.abuse_velocity.includes('Premium')) {
+            delete ipqs.abuse_velocity;
+        }
     }
 
     return {
@@ -796,6 +815,52 @@ function exportData() {
     } catch (error) {
         console.error("Export Error:", error);
         showToast('导出过程中发生错误', 'error');
+    }
+}
+
+// Copy History to Clipboard as CSV
+function copyHistoryToClipboard() {
+    if (selectedHistoryIds.size === 0) {
+        showToast('请先勾选需要复制的记录', 'info');
+        return;
+    }
+
+    try {
+        const selectedItems = searchHistory.filter(item => selectedHistoryIds.has(item.id));
+
+        // Build CSV Header
+        let csvContent = "查询时间,IP地址,地理位置,ASN,网络类型,欺诈评分,风险等级,结论\n";
+
+        // Build CSV Rows
+        selectedItems.forEach(item => {
+            if (item.results) {
+                item.results.forEach(res => {
+                    const line = [
+                        item.time,
+                        res.ip,
+                        `"${res.location}"`, // Quote to handle commas
+                        res.asn || '未知',
+                        res.type || '未知',
+                        res.fraudScore || '0',
+                        res.riskLabel || '未知',
+                        res.quality ? res.quality.verdict : '未知'
+                    ].join(",");
+                    csvContent += line + "\n";
+                });
+            }
+        });
+
+        // Write to Clipboard
+        navigator.clipboard.writeText(csvContent).then(() => {
+            showToast('已复制 CSV 数据！可直接粘贴到 Excel', 'success');
+        }).catch(err => {
+            console.error('Clipboard Error:', err);
+            showToast('复制失败，请检查浏览器剪贴板权限', 'error');
+        });
+
+    } catch (error) {
+        console.error('CSV Generation Error:', error);
+        showToast('生成 CSV 时发生错误', 'error');
     }
 }
 
