@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IP Intelligence - 专业检测</title>
+    <meta name="description" content="专为美区 TikTok 运营打造的 IP 纯净度与风险检测工具。集成 ProxyCheck, IPQS, Scamalytics 多源数据分析。">
+    <meta name="author" content="sonicx999">
+    <!-- Dynamic Favicon (Shield Icon) -->
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts -->
@@ -61,10 +66,16 @@
     <!-- Header -->
     <header class="w-full py-6 px-4 border-b border-white/10 glass-panel sticky top-0 z-50">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <i class="ph-fill ph-shield-check text-3xl text-brand-500"></i>
-                <h1 class="text-2xl font-bold tracking-tight text-white">IP <span
-                        class="text-brand-500">Intelligence</span></h1>
+            <div class="flex items-center gap-4">
+                <i class="ph-fill ph-shield-check text-4xl text-brand-500"></i>
+                <div class="flex flex-col">
+                    <h1 class="text-2xl font-bold tracking-tight text-white leading-none">
+                        IP <span class="text-brand-500">Intelligence</span>
+                    </h1>
+                    <p class="text-xs text-gray-400 mt-1 font-medium tracking-wide">
+                        专为美区 TikTok 运营打造的 IP 纯净度与风险检测工具
+                    </p>
+                </div>
             </div>
             <div class="flex gap-2">
                 <button id="settingsToggle"
@@ -120,6 +131,19 @@
         </section>
 
     </main>
+
+    <!-- Footer -->
+    <footer class="w-full py-6 mt-auto border-t border-white/5 bg-dark-900/30 backdrop-blur-sm">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm text-gray-500 font-mono">
+                &copy; 2025 IP Intelligence. Designed & Built by <span
+                    class="text-brand-400 font-bold">sonicx999</span>.
+            </p>
+            <p class="text-xs text-gray-600 mt-2">
+                Powered by ProxyCheck.io • IPQualityScore • Scamalytics • IPinfo
+            </p>
+        </div>
+    </footer>
 
     <!-- Sidebar Overlay -->
     <div id="sidebarOverlay"

@@ -6,6 +6,15 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [1.5.2] - 2025-11-26
+
+### 🎨 UI 优化 (UI Polish)
+- **品牌强化**: Header 添加副标题"专为美区 TikTok 运营打造的 IP 纯净度与风险检测工具"
+- **动态 Favicon**: 使用 SVG 数据 URI 实现盾牌图标,无需额外文件
+- **专业页脚**: 添加版权信息和技术栈展示(ProxyCheck.io, IPQualityScore, Scamalytics, IPinfo)
+- **SEO 优化**: 添加 meta description 和 author 标签,提升搜索引擎可见性
+- **布局完善**: 页脚自动粘底,Glassmorphism 风格统一
+
 ## [1.5.1] - 2025-11-26
 
 ### ✨ 新增功能 (New Features)
