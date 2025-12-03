@@ -6,6 +6,52 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [3.0.1] - 2025-12-04 📁
+
+### 🏗️ 项目结构变更 (Directory Restructuring)
+
+#### 目录迁移
+- **目录重命名**: 前端目录从 `frontend/` 重命名为 `client/`
+- **项目结构优化**: 加入 Monorepo 布局，与后端代码分离
+
+#### 相关变更
+- **主文档更新**: 主 CHANGELOG 已迁移到根目录的 `docs/CHANGELOG.md`
+- **项目结构简化**: 根目录只包含必要的文件和目录
+
+## [3.0.0] - 2025-11-30 🚀
+
+### ✨ 核心更新：前端化部署 (Serverless Deployment)
+
+#### 架构转型
+- **Serverless 架构** - 移除 Python Flask 后端依赖，实现纯前端部署
+- **GitHub Pages 兼容** - 支持直接部署到 GitHub Pages 等静态托管服务
+- **CORS 解决方案** - 使用 corsproxy.io 处理跨域 API 请求
+- **直接 API 调用** - 前端直接调用第三方 API，无中间层
+
+#### 代码优化
+- **移除后端依赖** - 删除 `PROXY_BASE` 常量，更新所有 API 请求逻辑
+- **增强错误处理** - 添加置信度标记系统，明确显示判断可靠性
+- **改进数据源处理** - 优化数据源不足时的处理逻辑
+- **图标库升级** - 从 Phosphor Icons 迁移到 Font Awesome
+
+#### UI/UX 改进
+- **页脚更新** - 显示 "Serverless Mode (GitHub Pages Compatible)"
+- **数据源状态显示** - 明确显示每个数据源的可用性
+- **置信度可视化** - 为 IP 类型判断、欺诈评分添加置信度标记
+- **改进结论描述** - 数据源不足时显示 "数据不足 - 初步判断"
+
+#### 部署优化
+- **简化部署流程** - 只需部署静态文件
+- **降低维护成本** - 无需维护后端服务器
+- **提高可靠性** - 减少后端服务器故障风险
+- **增强扩展性** - 直接调用第三方 API，无单点故障
+
+### 📦 项目结构更新
+- **独立部署文件夹** - 创建 `frontend/` 文件夹用于静态部署
+- **过时文件标记** - `server.py` 和 `requirements.txt` 标记为过时文件
+- **更新 README 文档** - 反映前端化部署架构
+- **详细部署方案** - 新增完整的前端化部署执行方案文档
+
 ## [2.0.0] - 2025-11-26 🎉
 
 ### 🚀 正式发布 (Official Release)

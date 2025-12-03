@@ -1,12 +1,6 @@
 # Trae AI configuration directory
 .trae/
 
-# Reference documentation
-reference_docs/
-
-# Test documentation and reports
-test_docs/
-
 # IDE and editor directories and files
 .vscode/
 .idea/

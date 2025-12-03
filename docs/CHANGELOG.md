@@ -6,39 +6,45 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
-## [3.0.0] - 2025-11-30 🚀
+## [2.1.0] - 2025-12-04 📁
 
-### ✨ 核心更新：前端化部署 (Serverless Deployment)
+### 🏗️ 项目结构重构 (Project Restructuring)
 
-#### 架构转型
-- **Serverless 架构** - 移除 Python Flask 后端依赖，实现纯前端部署
-- **GitHub Pages 兼容** - 支持直接部署到 GitHub Pages 等静态托管服务
-- **CORS 解决方案** - 使用 corsproxy.io 处理跨域 API 请求
-- **直接 API 调用** - 前端直接调用第三方 API，无中间层
+将项目结构重构为标准的 Monorepo 布局，提高项目的可维护性和扩展性。
 
-#### 代码优化
-- **移除后端依赖** - 删除 `PROXY_BASE` 常量，更新所有 API 请求逻辑
-- **增强错误处理** - 添加置信度标记系统，明确显示判断可靠性
-- **改进数据源处理** - 优化数据源不足时的处理逻辑
-- **图标库升级** - 从 Phosphor Icons 迁移到 Font Awesome
+### ✨ 核心变更 (Core Changes)
 
-#### UI/UX 改进
-- **页脚更新** - 显示 "Serverless Mode (GitHub Pages Compatible)"
-- **数据源状态显示** - 明确显示每个数据源的可用性
-- **置信度可视化** - 为 IP 类型判断、欺诈评分添加置信度标记
-- **改进结论描述** - 数据源不足时显示 "数据不足 - 初步判断"
+#### 目录结构优化
+- **前端整合**: 将前端文件从根目录移动到 `client/` 目录
+- **后端归档**: 将 `server.py` 归档到 `server_legacy/` 目录，标记为遗留代码
+- **文档整合**: 将所有文档文件移动到 `docs/` 目录，包括：
+  - CHANGELOG.md
+  - IP_Intelligence_架构分析与建议.md
+  - IP_Intelligence_前端化部署执行方案.md
+  - reference_docs/ 目录
 
-#### 部署优化
-- **简化部署流程** - 只需部署静态文件
-- **降低维护成本** - 无需维护后端服务器
-- **提高可靠性** - 减少后端服务器故障风险
-- **增强扩展性** - 直接调用第三方 API，无单点故障
+#### 清理与优化
+- **删除备份目录**: 删除了 `backups/` 目录，依赖 Git 进行版本管理
+- **更新 .gitignore**: 删除了不再需要的规则，优化忽略配置
+- **简化根目录**: 根目录只包含必要的文件和目录
 
-### 📦 项目结构更新
-- **独立部署文件夹** - 创建 `frontend/` 文件夹用于静态部署
-- **过时文件标记** - `server.py` 和 `requirements.txt` 标记为过时文件
-- **更新 README 文档** - 反映前端化部署架构
-- **详细部署方案** - 新增完整的前端化部署执行方案文档
+### 📋 重构后的项目结构
+```
+IP-Check-App/
+├── .agent/
+├── client/             # 前端应用
+├── docs/               # 文档目录
+├── server_legacy/      # 后端代理（遗留）
+├── .git/
+├── .gitignore
+└── README.md
+```
+
+### 🎯 重构目标
+- 提高项目的可维护性和扩展性
+- 便于未来添加新的服务和模块
+- 更好地支持团队协作
+- 符合现代软件开发最佳实践
 
 ## [2.0.0] - 2025-11-26 🎉
 

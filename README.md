@@ -3,7 +3,7 @@
 <div align="center">
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-2.0.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-2.1.0-brightgreen.svg)
 ![Platform](https://img.shields.io/badge/platform-Web-orange.svg)
 ![Python](https://img.shields.io/badge/python-3.x-blue.svg)
 
@@ -114,10 +114,10 @@ cd IP-Check-App
 pip install flask requests flask-cors
 ```
 
-#### 3. 启动后端服务
+#### 3. 启动后端服务（可选）
 
 ```bash
-python server.py
+python server_legacy/server.py
 ```
 
 服务将运行在 `http://localhost:5000`
@@ -184,27 +184,37 @@ python server.py
 
 ```
 IP-Check-App/
-├── index.html          # 主页面
-├── script.js           # 前端逻辑
-├── server.py           # Python 后端代理
-├── CHANGELOG.md        # 更新日志
-├── README.md           # 项目文档
-├── LICENSE             # MIT 许可证
+├── .agent/             # Agent 配置
+├── client/             # 前端应用
+│   ├── index.html      # 主页面
+│   ├── script.js       # 前端逻辑
+│   ├── README-client.md # 前端文档
+│   └── CHANGELOG-client.md # 前端更新日志
 ├── docs/               # 文档目录
-│   └── dev_history/    # 开发历史记录
-└── backups/            # 备份文件
+│   ├── CHANGELOG.md    # 主更新日志
+│   ├── IP_Intelligence_架构分析与建议.md
+│   ├── IP_Intelligence_前端化部署执行方案.md
+│   ├── dev_history/    # 开发历史记录
+│   │   └── README-dev_history.md # 开发历史索引
+│   └── reference_docs/ # 参考文档
+├── server_legacy/      # 后端代理（遗留）
+│   └── server.py       # Python 后端代理
+├── .git/               # Git 版本控制
+├── .gitignore          # Git 忽略规则
+└── README.md           # 项目文档
 ```
 
 ---
 
 ## 🗺️ 开发路线
 
-### v2.0.0 (当前版本)
-- ✅ Toast 通知系统
-- ✅ IP 格式验证
-- ✅ CSV 复制功能
-- ✅ IPQS 数据清洗
-- ✅ UI 润色与品牌化
+### v2.1.0 (当前版本)
+- ✅ 项目结构重构为 Monorepo 布局
+- ✅ 前端文件整合到 client/ 目录
+- ✅ 后端文件归档到 server_legacy/ 目录
+- ✅ 文档整合到 docs/ 目录
+- ✅ 清理不再需要的文件和目录
+- ✅ 更新 .gitignore 文件
 
 ### 未来计划
 - [ ] 支持 IPv6 深度分析
