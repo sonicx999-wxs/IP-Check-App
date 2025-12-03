@@ -1,0 +1,115 @@
+# ProxyCheck.io API 集成规范文档 (TikTok 运营专用版)
+
+## 1. 项目背景与目标
+本项目 "IP Intelligence" 旨在集成 ProxyCheck.io API，替代原有的 MaxMind 方案。
+**核心业务场景**：美区 TikTok 账号运营（视频发布/橱窗带货）。
+**关键痛点**：TikTok 对网络环境极其敏感。必须精准区分 **原生住宅 IP (Residential)** 与 **机房/商业 IP (Datacenter/Business)**。商业宽带（Business）虽优于机房，但不如住宅 IP 纯净。
+
+## 2. API 基础配置 (Configuration)
+
+### 2.1 服务端点 (Endpoint)
+*   **Base URL**: `http://proxycheck.io/v2/`
+*   **Method**: `GET` (推荐) 或 `POST`
+
+### 2.2 请求参数 (Query Parameters)
+为了获取实测示例中的 `type` 和 `risk` 字段，必须附加以下参数：
+
+| 参数名 | 值 | 说明 | 业务价值 |
+| :--- | :--- | :--- | :--- |
+| `key` | `YOUR_API_KEY` | 用户输入的 API Key | 必填，否则无法获取 `type` 字段 |
+| `vpn` | `1` | 开启代理检测 | 识别 Proxy/VPN 状态 |
+| `asn` | `1` | 开启 ASN 数据 | 获取运营商名称 (provider) |
+| `risk` | `1` | 开启风险评分 | 获取 0-100 评分 |
+| `info` | `1` | **开启详细信息** | **关键**：获取 `type` (Business/Residential) |
+
+**请求 URL 构造示例**:
+`http://proxycheck.io/v2/{IP_ADDRESS}?key={API_KEY}&vpn=1&asn=1&risk=1&info=1`
+
+---
+
+## 3. 响应数据结构 (Response Schema)
+
+基于实测数据的标准 JSON 结构。**注意：顶层 Key 是动态的 IP 地址。**
+
+```
+{
+  "status": "ok",
+  "207.174.7.237": {
+    "asn": "AS153371",
+    "provider": "BACK WAVES LIMITED",  // 运营商名称 (用于黑名单关键词匹配)
+    "country": "United States",
+    "isocode": "US",                   // 必须为 US
+    "city": "Los Angeles",
+    "region": "California",
+    "proxy": "no",                     // 核心字段：yes/no
+    "type": "Business",                // 核心字段：Business, Residential, Wireless, Hosting
+    "risk": 0                          // 核心字段：0-100
+  }
+}
+```
+
+---
+
+## 4. 业务逻辑判定 (TikTok Traffic Light Protocol)
+
+前端 `script.js` 需实现以下**红绿灯判定逻辑**。
+
+### 4.1 连接类型映射表 (Type Mapping)
+
+| API `type` 值 | `proxy` 值 | 判定结果 | UI 显示 | TikTok 适用性 |
+| :--- | :--- | :--- | :--- | :--- |
+| `Residential` | `no` | **🟢 极佳** | 🏠 住宅宽带 (原生) | ✅ **推荐** (发布/带货) |
+| `Wireless` | `no` | **🟢 极佳** | 📱 移动网络 (4G/5G) | ✅ **推荐** (发布/带货) |
+| `ISP` | `no` | **🔵 良好** | 🌐 固网宽带 | 🆗 **可用** (日常浏览) |
+| `Business` | `no` | **🟡 警告** | 🏢 商业/专线 | ⚠️ **需养号** (避免频繁发布) |
+| `Education` | `no` | **🟡 警告** | 🎓 教育网 | ⚠️ **慎用** |
+| `Hosting` | ANY | **🔴 高危** | ❌ 机房/托管 | ⛔ **禁止使用** |
+| `VPN` | `yes` | **🔴 高危** | ❌ 代理/VPN | ⛔ **禁止使用** |
+| ANY | `yes` | **🔴 高危** | ❌ 代理/VPN | ⛔ **禁止使用** |
+
+### 4.2 特殊风控逻辑 (ISP Blacklist)
+即使 `type` 显示为 Business 或 ISP，如果 `provider` (运营商) 包含以下关键词，**强制标记为高危**：
+*   **关键词**: `Google`, `Amazon`, `AWS`, `Microsoft`, `Azure`, `DigitalOcean`, `Linode`, `Vultr`, `Zenlayer`, `Datacamp`, `Choopa`, `Cloudflare`.
+
+---
+
+## 5. 开发任务清单 (Implementation Tasks)
+
+### 5.1 后端开发 (`server.py`)
+*   **路由**: `/api/proxycheck` (POST)
+*   **逻辑**:
+    1.  接收 `{ ip, api_key }`。
+    2.  发起 HTTP GET 请求至 ProxyCheck.io。
+    3.  **透传响应**: 直接将第三方返回的 JSON 返回给前端，不要在后端做数据处理。
+
+### 5.2 前端配置 (`index.html`)
+*   **设置模态框**:
+    *   新增输入框：`ProxyCheck API Key`。
+    *   ID: `keyProxyCheck`。
+    *   样式：保持 Glassmorphism 风格。
+
+### 5.3 核心分析逻辑 (`script.js`)
+**函数**: `analyzeData(ip, ...)`
+1.  **解析数据**: `const pcData = response[ip];`
+2.  **获取字段**:
+    *   `connType` = `pcData.type` (默认为 "Unknown")
+    *   `isProxy` = `pcData.proxy` === 'yes'
+    *   `riskScore` = `pcData.risk`
+    *   `provider` = `pcData.provider`
+3.  **计算 TikTok 质量**:
+    *   实现上述 "4.1 连接类型映射表" 的逻辑。
+    *   如果是 `Business` (如实测数据)，前端 `quality.verdict` 应显示 **"⚠️ 商业 IP (注意养号)"**，颜色为黄色。
+    *   如果是 `Residential`，显示 **"✅ 原生住宅 IP"**，颜色为绿色。
+4.  **风险分修正**:
+    *   如果 ProxyCheck 认为是 Proxy，则 `finalFraudScore` 至少为 90。
+
+### 5.4 UI 渲染 (`renderResults`)
+*   **新增 Badge**: 在结果卡片右上角新增 "Type" 徽章 (例如: `🏢 Business`).
+*   **TikTok 评估区**:
+    *   新增行: **"ISP 属性"**。
+    *   显示内容: `<Type Icon> <Type Name> (<Provider Name>)`
+    *   例如: `🏢 商业宽带 (BACK WAVES LIMITED)`
+
+## 6. 异常处理
+*   **Key 无效/额度耗尽**: ProxyCheck 会返回 `status: "denied"`。前端需捕获并提示 "API Key 无效或额度耗尽，仅显示基础信息"。
+*   **字段缺失**: 免费额度耗尽后，`type` 字段可能不返回。此时降级显示 "Type: 未知"。
