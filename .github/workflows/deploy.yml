@@ -21,6 +21,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: "ip-check-esd" # 对应你之前手动建的那个项目名
+          projectName: "ip-check" # 对应你之前手动建的那个项目名
           directory: "client"        # 告诉它网页在 client 文件夹里
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
