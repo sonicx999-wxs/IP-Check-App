@@ -3,7 +3,7 @@
 <div align="center">
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-2.1.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-2.2.0-brightgreen.svg)
 ![Platform](https://img.shields.io/badge/platform-Web-orange.svg)
 ![Python](https://img.shields.io/badge/python-3.x-blue.svg)
 
@@ -208,7 +208,13 @@ IP-Check-App/
 
 ## 🗺️ 开发路线
 
-### v2.1.0 (当前版本)
+### v2.2.0 (当前版本)
+- ✅ 实现级联熔断模式，提高检测效率
+- ✅ 分层检测逻辑：基建层、信誉层、终审层
+- ✅ 24小时本地缓存机制，节省API配额
+- ✅ 国家归属地冲突检测
+- ✅ 优化Business IP判定逻辑
+- ✅ 移除WebRTC和浏览器指纹检测代码
 - ✅ 项目结构重构为 Monorepo 布局
 - ✅ 前端文件整合到 client/ 目录
 - ✅ 后端文件归档到 server_legacy/ 目录

@@ -6,6 +6,38 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [2.2.0] - 2025-12-05 🔧
+
+### ✨ 核心功能更新 (Core Feature Updates)
+
+#### 级联熔断模式 (Circuit Breaker)
+- **实现级联熔断**: 采用"级联熔断"模式替代并行请求，提高检测效率
+- **分层检测逻辑**:
+  - **Layer 1 (基建层)**: 并行请求 IPinfo 和 ProxyCheck.io
+    - 熔断条件: ProxyCheck 返回 VPN/Proxy/Hosting 类型，或 IPinfo ISP 包含云厂商关键词
+    - Business 类型 IP 不再直接熔断，而是进入完整检测流程
+  - **Layer 2 (信誉层)**: 调用 Scamalytics
+    - 熔断条件: 分数 > 40，标记为 WARN
+  - **Layer 3 (终审层)**: 调用 IPQualityScore
+    - 缓存机制: 24小时本地缓存，Key=`ipqs_v2_${ip}`
+
+#### 数据融合与冲突处理
+- **地理位置优化**: 优先显示 `ipinfo.city` 和 `ipinfo.region`
+- **国家归属地冲突检测**: 当 IPinfo 和 ProxyCheck 的 Country Code 不一致时，显示警告
+- **ISP 显示优化**: 优先显示 `ipinfo.org`（更规范）
+- **IPQS 容错处理**: 检查 `ipqsData.success`，失败时视为 "N/A"，依赖 Scamalytics 评分
+
+#### 最终判定逻辑更新
+- **Business IP 判定**: 分数安全时显示 "🟡 警告 (Business IP)"
+- **Residential IP 判定**: 分数安全时显示 "🟢 通过"
+- **分层结果综合**: 综合 Layer 1-3 结果给出最终判定
+
+### 🐛 修复与优化
+- **修复类型判定**: 放宽 Business 类型判定，允许进入完整检测流程
+- **优化结果渲染**: 显示国家归属地冲突警告
+- **增强错误处理**: 每个 API 请求添加 try-catch 块
+- **移除不必要代码**: 删除 WebRTC 和浏览器指纹检测代码
+
 ## [2.1.0] - 2025-12-04 📁
 
 ### 🏗️ 项目结构重构 (Project Restructuring)

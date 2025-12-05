@@ -1,3 +1,6 @@
+// Global Version Constant
+const APP_VERSION = '2.2.0';
+
 // Mock Data Generators (Fallback)
 const getRandomScore = () => Math.floor(Math.random() * 100);
 const getRiskLevel = (score) => {
@@ -48,6 +51,8 @@ let apiKeys = JSON.parse(localStorage.getItem('ip_check_api_keys')) || {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
+    // Version watermark for debugging
+    console.log(`IP Intelligence v${APP_VERSION} initialized`);
     renderHistory();
     loadSettingsUI();
 });
@@ -341,37 +346,63 @@ async function handleCheck() {
     checkBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> 正在检测...`;
     checkBtn.disabled = true;
 
+    // 初始化：清空UI
+    resultsArea.innerHTML = '';
+
     try {
-        // Check if any keys are missing
-        const missingKeys = [];
-        if (!apiKeys.ipqs) missingKeys.push('IPQualityScore');
-        if (!apiKeys.ipinfo) missingKeys.push('IPinfo');
-        if (!apiKeys.scamUser || !apiKeys.scamKey) missingKeys.push('Scamalytics');
-        if (!apiKeys.proxyCheck) missingKeys.push('ProxyCheck.io');
-
-        if (missingKeys.length === 4) {
-            showToast('未配置任何 API Key，将使用模拟数据演示', 'info');
-        }
-
         const results = [];
 
         for (const ip of validIPs) {
-            // Parallel Fetch
-            const [ipqsRes, ipinfoRes, scamRes, proxyCheckRes] = await Promise.allSettled([
-                fetchIPQS(ip),
-                fetchIPinfo(ip),
-                fetchScamalytics(ip),
-                fetchProxyCheck(ip)
-            ]);
+            let result = {
+                ip,
+                status: 'PASS',
+                message: '',
+                layers: {
+                    layer1: { status: 'PENDING', data: null },
+                    layer2: { status: 'PENDING', data: null },
+                    layer3: { status: 'PENDING', data: null }
+                },
+                finalScore: 0,
+                finalVerdict: '',
+                rawData: {
+                    ipqs: null,
+                    ipinfo: null,
+                    scamalytics: null,
+                    proxycheck: null
+                }
+            };
 
-            const dataIPQS = ipqsRes.status === 'fulfilled' ? ipqsRes.value : null;
-            const dataIPinfo = ipinfoRes.status === 'fulfilled' ? ipinfoRes.value : null;
-            const dataScam = scamRes.status === 'fulfilled' ? scamRes.value : null;
-            const dataProxyCheck = proxyCheckRes.status === 'fulfilled' ? proxyCheckRes.value : null;
+            try {
+                // Layer 1: 基建层 - 并行请求
+                result = await executeLayer1(ip, result);
+                if (result.status === 'FAIL') {
+                    // 即使失败，也需要进行最终判定
+                    result = determineFinalVerdict(result);
+                    results.push(result);
+                    continue;
+                }
 
-            // Analyze & Merge Data
-            const analyzed = analyzeData(ip, dataIPQS, dataIPinfo, dataScam, dataProxyCheck);
-            results.push(analyzed);
+                // Layer 2: 信誉层
+                result = await executeLayer2(ip, result);
+                if (result.status === 'WARN') {
+                    // 即使警告，也需要进行最终判定
+                    result = determineFinalVerdict(result);
+                    results.push(result);
+                    continue;
+                }
+
+                // Layer 3: 终审层
+                result = await executeLayer3(ip, result);
+
+            } catch (error) {
+                console.error(`IP ${ip} 检测失败:`, error);
+                result.status = 'ERROR';
+                result.message = `检测失败: ${error.message}`;
+            }
+
+            // 最终判定
+            result = determineFinalVerdict(result);
+            results.push(result);
         }
 
         renderResults(results);
@@ -384,6 +415,355 @@ async function handleCheck() {
         checkBtn.innerHTML = originalBtnContent;
         checkBtn.disabled = false;
     }
+}
+
+// Layer 1: 基建层 - 并行请求IPinfo和ProxyCheck.io
+async function executeLayer1(ip, result) {
+    try {
+        // 并行请求
+        const [ipinfoRes, proxyCheckRes] = await Promise.allSettled([
+            fetchIPinfo(ip),
+            fetchProxyCheck(ip)
+        ]);
+
+        const dataIPinfo = ipinfoRes.status === 'fulfilled' ? ipinfoRes.value : null;
+        const dataProxyCheck = proxyCheckRes.status === 'fulfilled' ? proxyCheckRes.value : null;
+
+        result.rawData.ipinfo = dataIPinfo;
+        result.rawData.proxycheck = dataProxyCheck;
+
+        // 熔断判定
+        // 1. Check ProxyCheck.io result
+        if (dataProxyCheck && dataProxyCheck[ip]) {
+            const pcData = dataProxyCheck[ip];
+            const pcType = pcData.type || '';
+            if (['VPN', 'Proxy', 'Hosting'].includes(pcType)) {
+                result.status = 'FAIL';
+                result.message = `Layer 1 熔断: 检测到 ${pcType}`;
+                return result;
+            } else if (pcType === 'Business') {
+                // Business类型IP继续检测，但标记为WARN
+                result.status = 'WARN';
+                result.layers.layer1.status = 'WARN';
+                result.layers.layer1.specialType = 'Business';
+                result.layers.layer1.specialMessage = '检测到商业IP';
+                result.layers.layer1.riskLevel = 'medium';
+            }
+        }
+
+        // 2. Check IPinfo result
+        if (dataIPinfo && !dataIPinfo.error && dataIPinfo.org) {
+            const isp = dataIPinfo.org.toLowerCase();
+            const cloudVendors = ['google', 'amazon', 'aws', 'cloudflare'];
+            if (cloudVendors.some(vendor => isp.includes(vendor))) {
+                result.status = 'FAIL';
+                result.message = `Layer 1 熔断: 检测到云厂商 ${isp}`;
+                return result;
+            }
+        }
+
+        result.layers.layer1.status = 'PASS';
+        result.layers.layer1.data = { ipinfo: dataIPinfo, proxycheck: dataProxyCheck };
+        return result;
+
+    } catch (error) {
+        console.error(`Layer 1 检测失败 (${ip}):`, error);
+        result.status = 'ERROR';
+        result.message = `Layer 1 检测失败: ${error.message}`;
+        return result;
+    }
+}
+
+// Layer 2: 信誉层 - Scamalytics
+async function executeLayer2(ip, result) {
+    try {
+        const scamRes = await fetchScamalytics(ip);
+        result.rawData.scamalytics = scamRes;
+
+        // 熔断判定
+        if (scamRes && scamRes.score && scamRes.score > 40) {
+            result.status = 'WARN';
+            result.message = `Layer 2 熔断: Scamalytics 评分 ${scamRes.score} > 40`;
+            result.layers.layer2.status = 'WARN';
+            result.layers.layer2.data = scamRes;
+            return result;
+        }
+
+        result.layers.layer2.status = 'PASS';
+        result.layers.layer2.data = scamRes;
+        return result;
+
+    } catch (error) {
+        console.error(`Layer 2 检测失败 (${ip}):`, error);
+        result.status = 'ERROR';
+        result.message = `Layer 2 检测失败: ${error.message}`;
+        return result;
+    }
+}
+
+// Layer 3: 终审层 - IPQualityScore with caching
+async function executeLayer3(ip, result) {
+    try {
+        // 缓存检查
+        const cacheKey = `ipqs_v2_${ip}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        const now = Date.now();
+        let dataIPQS = null;
+
+        if (cachedData) {
+            const parsedCache = JSON.parse(cachedData);
+            if (now - parsedCache.timestamp < 24 * 60 * 60 * 1000) {
+                // 缓存未过期
+                dataIPQS = parsedCache.data;
+                result.layers.layer3.data = { ...dataIPQS, fromCache: true };
+            }
+        }
+
+        // 无缓存或已过期，发起请求
+        if (!dataIPQS) {
+            const ipqsRes = await fetchIPQS(ip);
+            if (ipqsRes && !ipqsRes.error) {
+                dataIPQS = ipqsRes;
+                // 写入缓存
+                localStorage.setItem(cacheKey, JSON.stringify({
+                    data: dataIPQS,
+                    timestamp: now
+                }));
+            }
+            result.layers.layer3.data = { ...dataIPQS, fromCache: false };
+        }
+
+        result.rawData.ipqs = dataIPQS;
+        result.layers.layer3.status = 'PASS';
+        return result;
+
+    } catch (error) {
+        console.error(`Layer 3 检测失败 (${ip}):`, error);
+        result.status = 'ERROR';
+        result.message = `Layer 3 检测失败: ${error.message}`;
+        return result;
+    }
+}
+
+// 最终判定
+function determineFinalVerdict(result) {
+    // 默认使用IPQS评分，如果IPQS不可用则使用Scamalytics
+    let finalScore = 0;
+    let finalVerdict = '';
+    let riskLevel = { label: '低风险', color: 'text-green-400', bg: 'bg-green-400/10' };
+    let hasValidScore = false;
+
+    if (result.status === 'FAIL') {
+        finalScore = 100;
+        finalVerdict = '❌ 禁止使用';
+        riskLevel = { label: '高风险', color: 'text-red-400', bg: 'bg-red-400/10' };
+    } else {
+        // 检查IPQS数据
+        let ipqsScore = null;
+        if (result.layers.layer3.data) {
+            const ipqsData = result.layers.layer3.data;
+            // 检查ipqsData.success，如果为false则视为N/A
+            if (ipqsData && ipqsData.success !== false && ipqsData.fraud_score !== undefined) {
+                ipqsScore = ipqsData.fraud_score;
+                hasValidScore = true;
+            }
+        }
+        
+        // 检查Scamalytics数据
+        let scamScore = null;
+        if (result.rawData.scamalytics && result.rawData.scamalytics.score) {
+            scamScore = result.rawData.scamalytics.score;
+            hasValidScore = true;
+        }
+        
+        // 计算最终分数：优先使用IPQS，否则使用Scamalytics，否则使用随机分数
+        if (ipqsScore !== null) {
+            finalScore = ipqsScore;
+        } else if (scamScore !== null) {
+            finalScore = scamScore;
+        } else {
+            finalScore = getRandomScore();
+            hasValidScore = false;
+        }
+        
+        riskLevel = getRiskLevel(finalScore);
+        
+        // 检查Layer 1状态和IP类型
+        const isBusiness = result.layers.layer1.specialType === 'Business';
+        const isResidential = result.rawData.proxycheck && result.rawData.proxycheck[result.ip] && result.rawData.proxycheck[result.ip].type === 'Residential';
+        
+        // 最终判定逻辑
+        if (finalScore < 30) {
+            if (isBusiness) {
+                finalVerdict = '🟡 警告 (Business IP)';
+                riskLevel = { label: '中风险', color: 'text-yellow-400', bg: 'bg-yellow-400/10' };
+            } else if (isResidential) {
+                finalVerdict = '🟢 通过';
+                riskLevel = { label: '低风险', color: 'text-green-400', bg: 'bg-green-400/10' };
+            } else {
+                finalVerdict = '✅ 可以使用';
+            }
+        } else if (finalScore < 75) {
+            finalVerdict = '⚠️ 需谨慎使用';
+            riskLevel = { label: '中风险', color: 'text-yellow-400', bg: 'bg-yellow-400/10' };
+        } else {
+            finalVerdict = '❌ 禁止使用';
+            riskLevel = { label: '高风险', color: 'text-red-400', bg: 'bg-red-400/10' };
+        }
+        
+        if (!hasValidScore) {
+            finalVerdict = '⚠️ 数据不足';
+        }
+    }
+
+    result.finalScore = finalScore;
+    result.finalVerdict = finalVerdict;
+    result.riskLevel = riskLevel;
+    
+    // 构造兼容现有renderResults的数据结构
+    result.fraudScore = finalScore;
+    result.riskLabel = riskLevel.label;
+    result.riskColor = riskLevel.color;
+    result.riskBg = riskLevel.bg;
+    
+    // 填充基本信息
+    const locationData = getLocationFromRawData(result.rawData, result.ip);
+    result.location = locationData.location;
+    result.countryConflict = locationData.countryConflict;
+    result.asn = getAsnFromRawData(result.rawData, result.ip);
+    result.type = getTypeFromRawData(result.rawData, result.ip);
+    result.typeConfidence = 'medium';
+    result.scoreSources = getScoreSources(result.rawData);
+    result.scoreConfidence = 'medium';
+    
+    // 填充quality对象
+    result.quality = {
+        verdict: finalVerdict,
+        isDatacenter: false,
+        isMobile: false,
+        hasRecentAbuse: false,
+        isCrawler: false,
+        isBlacklisted: false,
+        ispRisk: finalScore < 30 ? 'low' : finalScore < 75 ? 'medium' : 'high',
+        specialService: [],
+        isValid: true,
+        countryConflict: result.countryConflict,
+        availableSources: {
+            ipqs: !!result.rawData.ipqs,
+            ipinfo: !!result.rawData.ipinfo,
+            scamalytics: !!result.rawData.scamalytics,
+            proxycheck: !!result.rawData.proxycheck
+        }
+    };
+    
+    // 检查是否为Business类型IP，添加特殊标记
+    if (result.layers.layer1.specialType === 'Business') {
+        if (result.quality.specialService) {
+            result.quality.specialService.push('Business');
+        } else {
+            result.quality.specialService = ['Business'];
+        }
+    }
+    
+    return result;
+}
+
+// 辅助函数：从原始数据中提取位置信息
+function getLocationFromRawData(rawData, ip) {
+    let location = '';
+    let country = '';
+    let countryConflict = false;
+    
+    // 优先使用 ipinfo.city 和 ipinfo.region
+    if (rawData.ipinfo && !rawData.ipinfo.error) {
+        location = `${rawData.ipinfo.city || ''} ${rawData.ipinfo.region || ''}`.trim();
+        country = rawData.ipinfo.country || '';
+        
+        // 检查国家归属地冲突
+        if (rawData.proxycheck && rawData.proxycheck[ip]) {
+            const proxycheckCountry = rawData.proxycheck[ip].isocode;
+            if (proxycheckCountry && country && country !== proxycheckCountry) {
+                countryConflict = true;
+            }
+        }
+    } 
+    // 备选方案：使用 proxycheck 数据
+    else if (rawData.proxycheck && rawData.proxycheck[ip]) {
+        location = `${rawData.proxycheck[ip].city || ''} ${rawData.proxycheck[ip].region || ''}`.trim();
+        country = rawData.proxycheck[ip].isocode || '';
+    }
+    // 备选方案：使用 ipqs 数据
+    else if (rawData.ipqs && rawData.ipqs.success) {
+        location = `${rawData.ipqs.city || ''} ${rawData.ipqs.region || ''}`.trim();
+        country = rawData.ipqs.country_code || '';
+    }
+    // 备选方案：使用 scamalytics 数据
+    else if (rawData.scamalytics && rawData.scamalytics.ip) {
+        location = `${rawData.scamalytics.country || ''}`;
+        country = rawData.scamalytics.country || '';
+    }
+    
+    const finalLocation = `${country} ${location}`.trim() || '未知位置';
+    
+    return {
+        location: finalLocation,
+        countryConflict: countryConflict
+    };
+}
+
+// 辅助函数：从原始数据中提取ASN/ISP信息
+function getAsnFromRawData(rawData, ip) {
+    // 优先显示 ipinfo.org (通常更规范)
+    if (rawData.ipinfo && !rawData.ipinfo.error && rawData.ipinfo.org) {
+        return rawData.ipinfo.org;
+    } else if (rawData.ipqs && rawData.ipqs.success) {
+        return rawData.ipqs.ISP || rawData.ipqs.ASN || '未知 ISP';
+    } else if (rawData.proxycheck && rawData.proxycheck[ip]) {
+        return rawData.proxycheck[ip].provider || rawData.proxycheck[ip].asn || '未知 ISP';
+    } else if (rawData.scamalytics && rawData.scamalytics.ip) {
+        return rawData.scamalytics.isp || '未知 ISP';
+    }
+    return '未知 ISP';
+}
+
+// 辅助函数：从原始数据中提取IP类型
+function getTypeFromRawData(rawData, ip) {
+    if (rawData.proxycheck && rawData.proxycheck[ip]) {
+        const type = rawData.proxycheck[ip].type || '';
+        const typeMap = {
+            'Residential': '🏠 住宅宽带',
+            'Wireless': '📱 移动网络',
+            'Business': '🏢 商业/专线',
+            'Hosting': '❌ 机房/托管',
+            'ISP': '🌐 固网宽带',
+            'VPN': '❌ VPN',
+            'Education': '⚠️ 教育网'
+        };
+        return typeMap[type] || '🌐 未知类型';
+    } else if (rawData.ipqs && rawData.ipqs.success) {
+        if (rawData.ipqs.mobile) return '📱 移动网络';
+        else return '🌐 ISP/宽带';
+    } else if (rawData.ipinfo && !rawData.ipinfo.error && rawData.ipinfo.privacy) {
+        if (rawData.ipinfo.privacy.vpn) return '❌ VPN';
+        else if (rawData.ipinfo.privacy.proxy) return '❌ 代理';
+        else if (rawData.ipinfo.privacy.hosting) return '❌ 数据中心';
+    }
+    return '🌐 未知类型';
+}
+
+// 辅助函数：获取评分来源
+function getScoreSources(rawData) {
+    const sources = [];
+    if (rawData.ipqs && rawData.ipqs.success) sources.push('IPQS');
+    if (rawData.scamalytics && rawData.scamalytics.score) sources.push('Scamalytics');
+    if (rawData.proxycheck) {
+        const proxyCheckValues = Object.values(rawData.proxycheck);
+        if (proxyCheckValues.length > 0 && proxyCheckValues[0] && proxyCheckValues[0].risk !== undefined) {
+            sources.push('ProxyCheck');
+        }
+    }
+    if (sources.length === 0) sources.push('Random (No Data)');
+    return sources;
 }
 
 function analyzeData(ip, ipqs, ipinfo, scam, proxyCheck) {
@@ -734,6 +1114,12 @@ function renderResults(results) {
                             ${data.scoreConfidence === 'high' ? '高' : data.scoreConfidence === 'medium' ? '中' : data.scoreConfidence === 'low' ? '低' : '极低'}
                         </span>
                     </div>
+                    ${data.countryConflict || (data.quality && data.quality.countryConflict) ? `
+                        <div class="mt-1 text-xs text-yellow-400 flex items-center gap-2">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>⚠️ 国家归属地数据冲突</span>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
             
@@ -746,7 +1132,7 @@ function renderResults(results) {
                     <!-- TikTok Verdict -->
                     <div class="flex items-center gap-2 text-xs col-span-2 md:col-span-4 mb-2">
                         <span class="px-3 py-1.5 rounded-md font-bold text-sm bg-white/10 border border-white/20 text-white w-full text-center">
-                            结论: ${data.quality.verdict}
+                            结论: ${data.quality ? data.quality.verdict : data.finalVerdict}
                         </span>
                     </div>
 
