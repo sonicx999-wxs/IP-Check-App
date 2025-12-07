@@ -331,10 +331,11 @@ function determineFinalVerdict(result) {
         scamScore = result.rawData.scamalytics.score;
     }
 
-    const pcNode = getProxyCheckNode(result.rawData.proxycheck, result.ip);
+    // 使用 RenderCore.getProxyCheckData 函数获取 ProxyCheck 数据，确保与历史记录评分逻辑一致
+    const pcData = window.RenderCore.getProxyCheckData(result.rawData.proxycheck, result.ip);
     let pcScore = null;
-    if (pcNode.risk !== undefined) {
-        pcScore = parseInt(pcNode.risk);
+    if (pcData.risk !== undefined) {
+        pcScore = parseInt(pcData.risk);
     }
 
     // 2. 决策优先级
@@ -345,43 +346,45 @@ function determineFinalVerdict(result) {
     
     // 3. 判定红绿灯
     let verdict = '未知';
-    let riskLevel = { label: '低风险', color: 'text-green-400' };
-
+    
     if (result.status === 'FAIL') {
         verdict = result.message || '❌ 禁止使用';
-        riskLevel = { label: '高风险', color: 'text-red-400' };
         finalScore = 100;
     } else {
         if (finalScore < 30) {
             if (result.layers.layer1.specialType === 'Business') {
                 verdict = '🟡 警告 (Business IP)';
-                riskLevel = { label: '中风险', color: 'text-yellow-400' };
             } else {
                 verdict = '🟢 通过';
-                riskLevel = { label: '低风险', color: 'text-green-400' };
             }
         } else if (finalScore < 75) {
             verdict = '⚠️ 需谨慎使用';
-            riskLevel = { label: '中风险', color: 'text-yellow-400' };
         } else {
             verdict = '❌ 禁止使用';
-            riskLevel = { label: '高风险', color: 'text-red-400' };
         }
     }
+    
+    // 使用 RenderCore.getRiskLevel 函数获取风险等级，确保逻辑一致性
+    const RC = window.RenderCore;
+    const riskLevel = RC.getRiskLevel(finalScore);
 
     // 4. 回填数据
     result.finalScore = finalScore;
     result.finalVerdict = verdict;
     result.riskLevel = riskLevel;
     
+    // 添加风险等级的单独属性，确保 RenderCore 能正确访问
+    result.riskLabel = riskLevel.label;
+    result.riskColor = riskLevel.color;
+    result.riskBg = riskLevel.bg;
+    
     const ipinfo = result.rawData.ipinfo || {};
     result.location = `${ipinfo.country || ''} ${ipinfo.city || ''}`.trim();
-    result.asn = ipinfo.org || pcNode.provider || '未知 ISP';
-    result.type = pcNode.type || '未知类型';
+    result.asn = ipinfo.org || pcData.provider || '未知 ISP';
+    result.type = pcData.type || '未知类型';
     result.typeConfidence = 'medium'; // 默认置信度
     
     // 添加 quality 对象，确保 IP 质量评估模块能正常显示
-    const RC = window.RenderCore;
     result.quality = {
         isValid: true,
         verdict: verdict,
@@ -614,7 +617,14 @@ function clearAllSidebarHistorySelections() {
 function renderResults(results) {
     if (window.RenderCore && typeof window.RenderCore.getResultCardHTML === 'function') {
         results.forEach(data => {
-            resultsArea.innerHTML += window.RenderCore.getResultCardHTML(data);
+            // 使用 reconstructViewData 函数处理数据，确保与历史记录数据格式一致
+            const viewData = reconstructViewData({
+                id: Date.now(),
+                raw_data: data.rawData,
+                ip: data.ip,
+                verdict: data.finalVerdict
+            });
+            resultsArea.innerHTML += window.RenderCore.getResultCardHTML(viewData);
         });
     } else {
         console.error("RenderCore 未加载");
