@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试历史记录功能</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+        .log {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>测试历史记录功能</h1>
+        
+        <div>
+            <h2>测试操作</h2>
+            <button onclick="addTestRecord()">添加测试记录</button>
+            <button onclick="viewHistory()">查看历史记录</button>
+            <button onclick="clearHistory()">清空历史记录</button>
+            <button onclick="redirectToHistory()">跳转到历史页面</button>
+        </div>
+        
+        <div>
+            <h2>历史记录日志</h2>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+    
+    <script>
+        // 模拟 saveHistory 函数
+        function saveHistory(ip, verdict, scores, rawData) {
+            // Read existing history from localStorage
+            let history = JSON.parse(localStorage.getItem('ip_history_log')) || [];
+            
+            // Build new record object
+            const newRecord = {
+                id: Date.now(),
+                timeStr: new Date().toLocaleString(),
+                ip: ip,
+                verdict: verdict, // e.g., "PASS", "WARN", "FAIL"
+                summary: {
+                    isp: rawData.ipinfo?.org || '未知',
+                    country: rawData.ipinfo?.country || '未知',
+                    flag: rawData.ipinfo?.country || '未知' // Use country code as flag
+                },
+                raw_data: rawData // Save raw API response data for export
+            };
+            
+            // Remove existing record for the same IP (deduplication)
+            history = history.filter(item => item.ip !== ip);
+            
+            // Add new record to the beginning
+            history.unshift(newRecord);
+            
+            // Keep only the last 50 records
+            if (history.length > 50) {
+                history.pop();
+            }
+            
+            // Save back to localStorage
+            localStorage.setItem('ip_history_log', JSON.stringify(history));
+            
+            log('记录已保存: ' + ip + ' - ' + verdict);
+        }
+        
+        // 添加测试记录
+        function addTestRecord() {
+            const testIPs = ['8.8.8.8', '1.1.1.1', '192.168.1.1', '10.0.0.1'];
+            const verdicts = ['PASS', 'WARN', 'FAIL'];
+            
+            const ip = testIPs[Math.floor(Math.random() * testIPs.length)];
+            const verdict = verdicts[Math.floor(Math.random() * verdicts.length)];
+            
+            const testData = {
+                ipinfo: {
+                    org: 'Google LLC',
+                    country: 'US'
+                },
+                proxycheck: {
+                    [ip]: {
+                        risk: Math.floor(Math.random() * 100)
+                    }
+                },
+                scamalytics: {
+                    score: Math.floor(Math.random() * 100)
+                },
+                ipqs: {
+                    fraud_score: Math.floor(Math.random() * 100)
+                }
+            };
+            
+            saveHistory(ip, verdict, {
+                ipqs: testData.ipqs.fraud_score,
+                scamalytics: testData.scamalytics.score,
+                proxycheck: testData.proxycheck[ip].risk
+            }, testData);
+        }
+        
+        // 查看历史记录
+        function viewHistory() {
+            const history = JSON.parse(localStorage.getItem('ip_history_log')) || [];
+            log('历史记录数量: ' + history.length);
+            log('历史记录数据: ' + JSON.stringify(history, null, 2));
+        }
+        
+        // 清空历史记录
+        function clearHistory() {
+            localStorage.removeItem('ip_history_log');
+            log('历史记录已清空');
+        }
+        
+        // 跳转到历史页面
+        function redirectToHistory() {
+            window.location.href = './history.html';
+        }
+        
+        // 日志函数
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // 初始日志
+        log('测试页面加载完成');
+        viewHistory();
+    </script>
+</body>
+</html>

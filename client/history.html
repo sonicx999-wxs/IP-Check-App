@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>历史记录 - TikTok IP Intelligence</title>
-    <meta name="description" content="TikTok IP Intelligence 历史记录页面">
+    <title>IP Intelligence - 历史记录</title>
+    <meta name="description" content="IP 检测历史记录，支持导出和查看详情">
     <meta name="author" content="sonicx999">
     <!-- Dynamic Favicon (Shield Icon) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
@@ -15,7 +15,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    
     <!-- Configuration -->
     <script src="./config.js"></script>
     <script>
@@ -48,11 +47,15 @@
             background-color: #0f172a;
             color: #f8fafc;
         }
-        
+
         .glass-panel {
             background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card-border {
+            border-left-width: 4px;
         }
     </style>
 </head>
@@ -60,7 +63,7 @@
 <body class="min-h-screen flex flex-col antialiased bg-[url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-fixed bg-center">
     <!-- Overlay -->
     <div class="fixed inset-0 bg-dark-900/90 z-[-1]"></div>
-    
+
     <!-- Navbar -->
     <nav class="w-full py-4 px-4 border-b border-white/10 glass-panel sticky top-0 z-50">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
@@ -68,7 +71,7 @@
                 <i class="fas fa-shield-check text-3xl text-brand-500"></i>
                 <a href="./index.html" class="text-xl font-bold text-white">TikTok IP Intelligence</a>
             </div>
-            <div class="flex gap-6">
+            <div class="flex gap-6 items-center">
                 <a href="./index.html" class="text-gray-400 hover:text-white font-medium transition-colors">主页</a>
                 <a href="./app.html" class="text-gray-400 hover:text-white font-medium transition-colors">检测工具</a>
                 <a href="./history.html" class="text-brand-400 hover:text-brand-300 font-medium transition-colors">历史记录</a>
@@ -76,31 +79,64 @@
             </div>
         </div>
     </nav>
-    
+
     <!-- Main Content -->
-    <main class="flex-grow container mx-auto px-4 py-12 max-w-4xl">
-        <div class="glass-panel rounded-2xl p-8 shadow-2xl">
-            <h1 class="text-3xl font-bold text-white mb-8">历史记录</h1>
-            
-            <div class="text-center py-12">
-                <i class="fas fa-history text-6xl text-brand-500 mb-4 opacity-50"></i>
-                <h2 class="text-xl text-gray-300 mb-2">历史记录功能开发中</h2>
-                <p class="text-gray-500">该功能将在后续版本中推出，敬请期待</p>
+    <main class="flex-grow container mx-auto px-4 py-12">
+        <!-- Export Buttons -->
+        <div class="flex justify-end mb-8">
+            <div class="flex gap-4">
+                <button id="exportExcelBtn" class="px-4 py-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-gray-200 transition-colors flex items-center gap-2 border border-white/10">
+                    <i class="fas fa-file-excel"></i> 导出 Excel
+                </button>
+                <button id="exportCsvBtn" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition-colors flex items-center gap-2 shadow-lg shadow-brand-500/20">
+                    <i class="fas fa-file-csv"></i> 导出 CSV
+                </button>
             </div>
         </div>
+
+        <!-- History Grid -->
+        <div id="historyGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- History cards will be rendered here -->
+        </div>
     </main>
-    
+
     <!-- Footer -->
     <footer class="w-full py-6 mt-auto border-t border-white/5 bg-dark-900/30 backdrop-blur-sm">
         <div class="container mx-auto px-4 text-center">
             <p class="text-sm text-gray-500 font-mono">
-                &copy; 2025 IP Intelligence v<span class="text-brand-400 font-bold" id="versionDisplay"></span>. Designed & Built by <span class="text-brand-400 font-bold">sonicx999</span>.
+                &copy; 2025 IP Intelligence v<span class="text-brand-400 font-bold" id="versionDisplay"></span>. Designed & Built by <span
+                    class="text-brand-400 font-bold">sonicx999</span>.
             </p>
             <script>
                 document.getElementById('versionDisplay').textContent = APP_CONFIG.version;
             </script>
+            <p class="text-xs text-gray-600 mt-2">
+                Serverless Mode (GitHub Pages Compatible)
+            </p>
+            <p class="text-xs text-gray-600 mt-1">
+                Powered by ProxyCheck.io • IPQualityScore • Scamalytics • IPinfo
+            </p>
         </div>
     </footer>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div class="glass-panel rounded-2xl max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-dark-900/50">
+                <h2 class="text-xl font-bold text-white">IP 详情</h2>
+                <button id="closeModal" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div id="detailContent">
+                    <!-- Detail content will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="history.js"></script>
 </body>
 
 </html>

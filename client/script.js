@@ -1,7 +1,7 @@
 // Version is now loaded from config.js
 
-// History Storage Functions
-function saveHistory(ip, verdict, scores, rawData) {
+// History Storage Functions - For history page
+function saveHistoryRecord(ip, verdict, scores, rawData) {
     // Read existing history from localStorage
     let history = JSON.parse(localStorage.getItem('ip_history_log')) || [];
     
@@ -32,6 +32,8 @@ function saveHistory(ip, verdict, scores, rawData) {
     
     // Save back to localStorage
     localStorage.setItem('ip_history_log', JSON.stringify(history));
+    console.log('History record saved successfully:', ip);
+    console.log('Current history log length:', history.length);
 }
 
 // Mock Data Generators (Fallback)
@@ -429,24 +431,14 @@ async function handleCheck() {
             try {
                 // Layer 1: 基建层 - 并行请求
                 result = await executeLayer1(ip, result);
-                if (result.status === 'FAIL') {
-                    // 即使失败，也需要进行最终判定
-                    result = determineFinalVerdict(result);
-                    results.push(result);
-                    continue;
+                if (result.status !== 'FAIL') {
+                    // Layer 2: 信誉层
+                    result = await executeLayer2(ip, result);
+                    if (result.status !== 'WARN') {
+                        // Layer 3: 终审层
+                        result = await executeLayer3(ip, result);
+                    }
                 }
-
-                // Layer 2: 信誉层
-                result = await executeLayer2(ip, result);
-                if (result.status === 'WARN') {
-                    // 即使警告，也需要进行最终判定
-                    result = determineFinalVerdict(result);
-                    results.push(result);
-                    continue;
-                }
-
-                // Layer 3: 终审层
-                result = await executeLayer3(ip, result);
 
             } catch (error) {
                 console.error(`IP ${ip} 检测失败:`, error);
@@ -458,12 +450,16 @@ async function handleCheck() {
             result = determineFinalVerdict(result);
             
             // 保存历史记录
-            const scores = {
-                ipqs: result.rawData.ipqs?.fraud_score || 0,
-                scamalytics: result.rawData.scamalytics?.score || 0,
-                proxycheck: result.rawData.proxycheck?.[result.ip]?.risk || 0
-            };
-            saveHistory(result.ip, result.status, scores, result.rawData);
+            try {
+                const scores = {
+                    ipqs: result.rawData.ipqs?.fraud_score || 0,
+                    scamalytics: result.rawData.scamalytics?.score || 0,
+                    proxycheck: result.rawData.proxycheck?.[result.ip]?.risk || 0
+                };
+                saveHistoryRecord(result.ip, result.status, scores, result.rawData);
+            } catch (error) {
+                console.error('Error saving history:', error);
+            }
             
             results.push(result);
         }
