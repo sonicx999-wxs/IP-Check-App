@@ -630,7 +630,7 @@ function determineFinalVerdict(result) {
         
         // 检查Scamalytics数据
         let scamScore = null;
-        if (result.rawData.scamalytics && result.rawData.scamalytics.score) {
+        if (result.rawData.scamalytics && result.rawData.scamalytics.score !== undefined && result.rawData.scamalytics.score !== null) {
             scamScore = result.rawData.scamalytics.score;
             hasValidScore = true;
         }
@@ -814,7 +814,7 @@ function getTypeFromRawData(rawData, ip) {
 function getScoreSources(rawData) {
     const sources = [];
     if (rawData.ipqs && rawData.ipqs.success) sources.push('IPQS');
-    if (rawData.scamalytics && rawData.scamalytics.score) sources.push('Scamalytics');
+    if (rawData.scamalytics && rawData.scamalytics.score !== undefined && rawData.scamalytics.score !== null) sources.push('Scamalytics');
     if (rawData.proxycheck) {
         const proxyCheckValues = Object.values(rawData.proxycheck);
         if (proxyCheckValues.length > 0 && proxyCheckValues[0] && proxyCheckValues[0].risk !== undefined) {
@@ -916,17 +916,17 @@ function analyzeData(ip, ipqs, ipinfo, scam, proxyCheck) {
     let actualScoreSources = 0;
     
     if (ipqs && ipqs.success) {
-        fraudScore = Math.max(fraudScore, ipqs.fraud_score || 0);
+        fraudScore = Math.max(fraudScore, ipqs.fraud_score !== undefined ? ipqs.fraud_score : 0);
         scoreSources.push('IPQS');
         actualScoreSources++;
     }
-    if (scam && scam.score) {
-        fraudScore = Math.max(fraudScore, scam.score || 0);
+    if (scam && scam.score !== undefined && scam.score !== null) {
+        fraudScore = Math.max(fraudScore, scam.score !== undefined ? scam.score : 0);
         scoreSources.push('Scamalytics');
         actualScoreSources++;
     }
-    if (pc && pc.risk) {
-        fraudScore = Math.max(fraudScore, parseInt(pc.risk) || 0);
+    if (pc && pc.risk !== undefined && pc.risk !== null) {
+        fraudScore = Math.max(fraudScore, parseInt(pc.risk) !== undefined ? parseInt(pc.risk) : 0);
         scoreSources.push('ProxyCheck');
         actualScoreSources++;
     }
