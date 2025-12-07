@@ -3,7 +3,7 @@
 <div align="center">
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-2.2.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-3.0.0-brightgreen.svg)
 ![Platform](https://img.shields.io/badge/platform-Web-orange.svg)
 ![Python](https://img.shields.io/badge/python-3.x-blue.svg)
 
@@ -186,8 +186,12 @@ python server_legacy/server.py
 IP-Check-App/
 ├── .agent/             # Agent 配置
 ├── client/             # 前端应用
-│   ├── index.html      # 主页面
+│   ├── index.html      # 门户主页
+│   ├── app.html        # 检测工具页面
+│   ├── guide.html      # 使用文档页面
+│   ├── history.html    # 历史记录页面（开发中）
 │   ├── script.js       # 前端逻辑
+│   ├── config.js       # 版本配置文件
 │   ├── README-client.md # 前端文档
 │   └── CHANGELOG-client.md # 前端更新日志
 ├── docs/               # 文档目录
@@ -208,7 +212,7 @@ IP-Check-App/
 
 ## 🗺️ 开发路线
 
-### v2.2.0 (当前版本)
+### v3.0.0 (当前版本)
 - ✅ 实现级联熔断模式，提高检测效率
 - ✅ 分层检测逻辑：基建层、信誉层、终审层
 - ✅ 24小时本地缓存机制，节省API配额
@@ -221,6 +225,12 @@ IP-Check-App/
 - ✅ 文档整合到 docs/ 目录
 - ✅ 清理不再需要的文件和目录
 - ✅ 更新 .gitignore 文件
+- ✅ 实现多页应用架构
+- ✅ 新增门户主页（index.html）
+- ✅ 统一导航栏设计
+- ✅ 实现版本号统一管理机制
+- ✅ 新增使用文档页面（guide.html）
+- ✅ 新增历史记录页面占位符（history.html）
 
 ### 未来计划
 - [ ] 支持 IPv6 深度分析

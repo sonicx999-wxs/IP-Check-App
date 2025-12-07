@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok IP Intelligence</title>
-    <meta name="description" content="专业级 IP 风控检测工具，专为美区 TikTok 运营打造">
+    <title>使用文档 - TikTok IP Intelligence</title>
+    <meta name="description" content="TikTok IP Intelligence 使用文档">
     <meta name="author" content="sonicx999">
     <!-- Dynamic Favicon (Shield Icon) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
@@ -69,24 +69,55 @@
                 <a href="./index.html" class="text-xl font-bold text-white">TikTok IP Intelligence</a>
             </div>
             <div class="flex gap-6">
-                <a href="./index.html" class="text-brand-400 hover:text-brand-300 font-medium transition-colors">主页</a>
+                <a href="./index.html" class="text-gray-400 hover:text-white font-medium transition-colors">主页</a>
                 <a href="./app.html" class="text-gray-400 hover:text-white font-medium transition-colors">检测工具</a>
                 <a href="./history.html" class="text-gray-400 hover:text-white font-medium transition-colors">历史记录</a>
-                <a href="./guide.html" class="text-gray-400 hover:text-white font-medium transition-colors">使用文档</a>
+                <a href="./guide.html" class="text-brand-400 hover:text-brand-300 font-medium transition-colors">使用文档</a>
             </div>
         </div>
     </nav>
     
     <!-- Main Content -->
-    <main class="flex-grow container mx-auto px-4 py-20 max-w-4xl text-center">
-        <div class="mb-12">
-            <i class="fas fa-shield-check text-8xl text-brand-500 mb-6"></i>
-            <h1 class="text-5xl font-bold text-white mb-4">TikTok IP Intelligence</h1>
-            <p class="text-xl text-gray-300 mb-8">专业级 IP 风控检测工具</p>
-            <p class="text-lg text-gray-400 mb-12">专为美区 TikTok 运营打造的 IP 纯净度与风险检测工具</p>
-            <a href="./app.html" class="inline-flex items-center gap-3 bg-brand-600 hover:bg-brand-500 text-white px-8 py-4 rounded-xl font-semibold shadow-lg shadow-brand-500/20 transition-all transform hover:scale-105 text-lg">
-                <i class="fas fa-rocket text-xl"></i> 启动检测
-            </a>
+    <main class="flex-grow container mx-auto px-4 py-12 max-w-4xl">
+        <div class="glass-panel rounded-2xl p-8 shadow-2xl">
+            <h1 class="text-3xl font-bold text-white mb-8">使用文档</h1>
+            
+            <section class="mb-12">
+                <h2 class="text-2xl font-semibold text-brand-400 mb-4">API Key 获取指南</h2>
+                <p class="text-gray-300 mb-4">本工具需要以下 API 服务的密钥才能正常工作：</p>
+                <div class="space-y-4">
+                    <div class="p-4 bg-dark-800/50 rounded-xl border border-white/10">
+                        <h3 class="font-medium text-white mb-2">1. IPQualityScore</h3>
+                        <p class="text-gray-400 text-sm">注册地址：https://www.ipqualityscore.com/</p>
+                        <p class="text-gray-400 text-sm">免费额度：5,000次/月</p>
+                    </div>
+                    <div class="p-4 bg-dark-800/50 rounded-xl border border-white/10">
+                        <h3 class="font-medium text-white mb-2">2. IPinfo</h3>
+                        <p class="text-gray-400 text-sm">注册地址：https://ipinfo.io/</p>
+                        <p class="text-gray-400 text-sm">免费额度：50,000次/月</p>
+                    </div>
+                    <div class="p-4 bg-dark-800/50 rounded-xl border border-white/10">
+                        <h3 class="font-medium text-white mb-2">3. Scamalytics</h3>
+                        <p class="text-gray-400 text-sm">注册地址：https://scamalytics.com/</p>
+                        <p class="text-gray-400 text-sm">免费额度：100次/天</p>
+                    </div>
+                    <div class="p-4 bg-dark-800/50 rounded-xl border border-white/10">
+                        <h3 class="font-medium text-white mb-2">4. ProxyCheck.io</h3>
+                        <p class="text-gray-400 text-sm">注册地址：https://proxycheck.io/</p>
+                        <p class="text-gray-400 text-sm">免费额度：1,000次/天</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section>
+                <h2 class="text-2xl font-semibold text-brand-400 mb-4">使用步骤</h2>
+                <ol class="list-decimal list-inside space-y-3 text-gray-300">
+                    <li>获取上述 API 服务的密钥</li>
+                    <li>在检测工具页面点击右上角的设置图标</li>
+                    <li>填入各 API 的密钥并保存</li>
+                    <li>返回检测工具页面，输入 IP 地址开始检测</li>
+                </ol>
+            </section>
         </div>
     </main>
     

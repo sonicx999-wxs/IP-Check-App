@@ -1,5 +1,4 @@
-// Global Version Constant
-const APP_VERSION = '2.2.0';
+// Version is now loaded from config.js
 
 // Mock Data Generators (Fallback)
 const getRandomScore = () => Math.floor(Math.random() * 100);
@@ -52,36 +51,46 @@ let apiKeys = JSON.parse(localStorage.getItem('ip_check_api_keys')) || {
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
     // Version watermark for debugging
-    console.log(`IP Intelligence v${APP_VERSION} initialized`);
-    renderHistory();
-    loadSettingsUI();
+    console.log(`IP Intelligence v${APP_CONFIG.version} initialized`);
+    
+    // Only execute tool-specific code if checkBtn exists
+    if (document.getElementById('checkBtn')) {
+        renderHistory();
+        loadSettingsUI();
+        
+        // Event Listeners
+        checkBtn.addEventListener('click', handleCheck);
+        
+        if (clearInputBtn) {
+            clearInputBtn.addEventListener('click', () => {
+                ipInput.value = '';
+                ipInput.focus();
+                showToast('输入框已清空', 'info');
+            });
+        }
+        
+        if (clearHistory) {
+            clearHistory.addEventListener('click', clearHistory);
+        }
+        
+        if (exportBtn) {
+            exportBtn.addEventListener('click', exportData);
+        }
+        
+        if (copyCsvBtn) {
+            copyCsvBtn.addEventListener('click', copyHistoryToClipboard);
+        }
+    }
 });
 
-// Event Listeners
-checkBtn.addEventListener('click', handleCheck);
-
-if (clearInputBtn) {
-    clearInputBtn.addEventListener('click', () => {
-        ipInput.value = '';
-        ipInput.focus();
-        showToast('输入框已清空', 'info');
-    });
+// Event listeners for sidebar (only if elements exist)
+if (historyToggle) {
+    historyToggle.addEventListener('click', toggleSidebar);
 }
 
-if (clearHistory) {
-    clearHistory.addEventListener('click', clearHistory);
+if (closeHistory) {
+    closeHistory.addEventListener('click', closeSidebar);
 }
-
-if (exportBtn) {
-    exportBtn.addEventListener('click', exportData);
-}
-
-if (copyCsvBtn) {
-    copyCsvBtn.addEventListener('click', copyHistoryToClipboard);
-}
-
-historyToggle.addEventListener('click', toggleSidebar);
-closeHistory.addEventListener('click', closeSidebar);
 
 // 修复点1：只在点击遮罩层本身时关闭，防止冒泡误触
 if (sidebarOverlay) {
@@ -93,10 +102,21 @@ if (sidebarOverlay) {
 }
 
 // Settings Events
-settingsToggle.addEventListener('click', openSettings);
-closeSettings.addEventListener('click', closeSettingsModal);
-settingsBackdrop.addEventListener('click', closeSettingsModal);
-saveSettingsBtn.addEventListener('click', saveSettings);
+if (settingsToggle) {
+    settingsToggle.addEventListener('click', openSettings);
+}
+
+if (closeSettings) {
+    closeSettings.addEventListener('click', closeSettingsModal);
+}
+
+if (settingsBackdrop) {
+    settingsBackdrop.addEventListener('click', closeSettingsModal);
+}
+
+if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener('click', saveSettings);
+}
 
 // 修复：配置清除按钮 (使用双击确认模式，避免原生 confirm 被拦截)
 if (clearSettingsBtn) {
