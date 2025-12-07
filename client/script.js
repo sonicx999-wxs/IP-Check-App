@@ -1,5 +1,39 @@
 // Version is now loaded from config.js
 
+// History Storage Functions
+function saveHistory(ip, verdict, scores, rawData) {
+    // Read existing history from localStorage
+    let history = JSON.parse(localStorage.getItem('ip_history_log')) || [];
+    
+    // Build new record object
+    const newRecord = {
+        id: Date.now(),
+        timeStr: new Date().toLocaleString(),
+        ip: ip,
+        verdict: verdict, // e.g., "PASS", "WARN", "FAIL"
+        summary: {
+            isp: rawData.ipinfo?.org || '未知',
+            country: rawData.ipinfo?.country || '未知',
+            flag: rawData.ipinfo?.country || '未知' // Use country code as flag
+        },
+        raw_data: rawData // Save raw API response data for export
+    };
+    
+    // Remove existing record for the same IP (deduplication)
+    history = history.filter(item => item.ip !== ip);
+    
+    // Add new record to the beginning
+    history.unshift(newRecord);
+    
+    // Keep only the last 50 records
+    if (history.length > 50) {
+        history.pop();
+    }
+    
+    // Save back to localStorage
+    localStorage.setItem('ip_history_log', JSON.stringify(history));
+}
+
 // Mock Data Generators (Fallback)
 const getRandomScore = () => Math.floor(Math.random() * 100);
 const getRiskLevel = (score) => {
@@ -422,6 +456,15 @@ async function handleCheck() {
 
             // 最终判定
             result = determineFinalVerdict(result);
+            
+            // 保存历史记录
+            const scores = {
+                ipqs: result.rawData.ipqs?.fraud_score || 0,
+                scamalytics: result.rawData.scamalytics?.score || 0,
+                proxycheck: result.rawData.proxycheck?.[result.ip]?.risk || 0
+            };
+            saveHistory(result.ip, result.status, scores, result.rawData);
+            
             results.push(result);
         }
 
