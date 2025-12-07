@@ -80,8 +80,15 @@ function renderHistory() {
             riskScore = item.raw_data.ipqs.fraud_score;
         } else if (item.raw_data.scamalytics?.score !== undefined && item.raw_data.scamalytics?.score !== null) {
             riskScore = item.raw_data.scamalytics.score;
-        } else if (item.raw_data.proxycheck?.risk !== undefined && item.raw_data.proxycheck?.risk !== null) {
-            riskScore = parseInt(item.raw_data.proxycheck.risk);
+        } else {
+            // Handle ProxyCheck data with dynamic IP key
+            const pcRaw = item.raw_data.proxycheck || {};
+            // 尝试直接获取该IP的数据，如果没找到，尝试找对象中第一个是对象的属性
+            const pcNode = pcRaw[item.ip] || Object.values(pcRaw).find(v => typeof v === 'object' && v.risk !== undefined) || {};
+            const pcRisk = pcNode.risk;
+            if (pcRisk !== undefined && pcRisk !== null) {
+                riskScore = parseInt(pcRisk);
+            }
         }
         
         // Determine risk level based on score
@@ -221,8 +228,15 @@ function showDetailModal(id) {
         riskScore = item.raw_data.ipqs.fraud_score;
     } else if (item.raw_data.scamalytics?.score !== undefined && item.raw_data.scamalytics?.score !== null) {
         riskScore = item.raw_data.scamalytics.score;
-    } else if (item.raw_data.proxycheck?.risk !== undefined && item.raw_data.proxycheck?.risk !== null) {
-        riskScore = parseInt(item.raw_data.proxycheck.risk);
+    } else {
+        // Handle ProxyCheck data with dynamic IP key
+        const pcRaw = item.raw_data.proxycheck || {};
+        // 尝试直接获取该IP的数据，如果没找到，尝试找对象中第一个是对象的属性
+        const pcNode = pcRaw[item.ip] || Object.values(pcRaw).find(v => typeof v === 'object' && v.risk !== undefined) || {};
+        const pcRisk = pcNode.risk;
+        if (pcRisk !== undefined && pcRisk !== null) {
+            riskScore = parseInt(pcRisk);
+        }
     }
     
     // Format the raw data for display
@@ -319,9 +333,19 @@ function showDetailModal(id) {
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-sm text-gray-400">ProxyCheck:</span>
-                            <span class="font-medium ${item.raw_data.proxycheck?.risk !== undefined && item.raw_data.proxycheck?.risk !== null ? 'text-yellow-400' : 'text-gray-500'}">
-                                ${item.raw_data.proxycheck?.risk !== undefined && item.raw_data.proxycheck?.risk !== null ? item.raw_data.proxycheck.risk : '无'}
-                            </span>
+                            ${(() => {
+                                // Handle ProxyCheck data with dynamic IP key
+                                const pcRaw = item.raw_data.proxycheck || {};
+                                // 尝试直接获取该IP的数据，如果没找到，尝试找对象中第一个是对象的属性
+                                const pcNode = pcRaw[item.ip] || Object.values(pcRaw).find(v => typeof v === 'object' && v.risk !== undefined) || {};
+                                const pcRisk = pcNode.risk;
+                                const hasRisk = pcRisk !== undefined && pcRisk !== null;
+                                return `
+                                    <span class="font-medium ${hasRisk ? 'text-yellow-400' : 'text-gray-500'}">
+                                        ${hasRisk ? pcRisk : '无'}
+                                    </span>
+                                `;
+                            })()}
                         </div>
                     </div>
                     <div class="bg-dark-900/50 p-3 rounded-lg">
@@ -434,15 +458,29 @@ function exportExcel() {
     
     // Add data rows
     exportData.forEach(item => {
+        // Helper function to get ProxyCheck risk score
+        const getProxyCheckRisk = (proxyData, ip) => {
+            const pcRaw = proxyData || {};
+            // 尝试直接获取该IP的数据，如果没找到，尝试找对象中第一个是对象的属性
+            const pcNode = pcRaw[ip] || Object.values(pcRaw).find(v => typeof v === 'object' && v.risk !== undefined) || {};
+            return pcNode.risk;
+        };
+        
         // Calculate total risk score
         let totalScore = 0;
         if (item.raw_data.ipqs?.fraud_score !== undefined && item.raw_data.ipqs?.fraud_score !== null) {
             totalScore = item.raw_data.ipqs.fraud_score;
         } else if (item.raw_data.scamalytics?.score !== undefined && item.raw_data.scamalytics?.score !== null) {
             totalScore = item.raw_data.scamalytics.score;
-        } else if (item.raw_data.proxycheck?.risk !== undefined && item.raw_data.proxycheck?.risk !== null) {
-            totalScore = parseInt(item.raw_data.proxycheck.risk);
+        } else {
+            const pcRisk = getProxyCheckRisk(item.raw_data.proxycheck, item.ip);
+            if (pcRisk !== undefined && pcRisk !== null) {
+                totalScore = parseInt(pcRisk);
+            }
         }
+        
+        // Get ProxyCheck risk score
+        const pcRisk = getProxyCheckRisk(item.raw_data.proxycheck, item.ip);
         
         const row = [
             item.id,
@@ -455,7 +493,7 @@ function exportExcel() {
             item.raw_data.ipqs?.fraud_score !== undefined && item.raw_data.ipqs?.fraud_score !== null ? item.raw_data.ipqs.fraud_score : '无',
             item.raw_data.scamalytics?.score !== undefined && item.raw_data.scamalytics?.score !== null ? item.raw_data.scamalytics.score : '无',
             item.raw_data.scamalytics?.risk !== undefined && item.raw_data.scamalytics?.risk !== null ? item.raw_data.scamalytics.risk : '无',
-            item.raw_data.proxycheck?.risk !== undefined && item.raw_data.proxycheck?.risk !== null ? item.raw_data.proxycheck.risk : '无',
+            pcRisk !== undefined && pcRisk !== null ? pcRisk : '无',
             JSON.stringify(item.raw_data)
         ];
         
@@ -508,15 +546,29 @@ function copyCsv() {
     
     // Add data rows
     exportData.forEach(item => {
+        // Helper function to get ProxyCheck risk score
+        const getProxyCheckRisk = (proxyData, ip) => {
+            const pcRaw = proxyData || {};
+            // 尝试直接获取该IP的数据，如果没找到，尝试找对象中第一个是对象的属性
+            const pcNode = pcRaw[ip] || Object.values(pcRaw).find(v => typeof v === 'object' && v.risk !== undefined) || {};
+            return pcNode.risk;
+        };
+        
         // Calculate total risk score
         let totalScore = 0;
         if (item.raw_data.ipqs?.fraud_score !== undefined && item.raw_data.ipqs?.fraud_score !== null) {
             totalScore = item.raw_data.ipqs.fraud_score;
         } else if (item.raw_data.scamalytics?.score !== undefined && item.raw_data.scamalytics?.score !== null) {
             totalScore = item.raw_data.scamalytics.score;
-        } else if (item.raw_data.proxycheck?.risk !== undefined && item.raw_data.proxycheck?.risk !== null) {
-            totalScore = parseInt(item.raw_data.proxycheck.risk);
+        } else {
+            const pcRisk = getProxyCheckRisk(item.raw_data.proxycheck, item.ip);
+            if (pcRisk !== undefined && pcRisk !== null) {
+                totalScore = parseInt(pcRisk);
+            }
         }
+        
+        // Get ProxyCheck risk score
+        const pcRisk = getProxyCheckRisk(item.raw_data.proxycheck, item.ip);
         
         const row = [
             item.id,
@@ -529,7 +581,7 @@ function copyCsv() {
             item.raw_data.ipqs?.fraud_score !== undefined && item.raw_data.ipqs?.fraud_score !== null ? item.raw_data.ipqs.fraud_score : '无',
             item.raw_data.scamalytics?.score !== undefined && item.raw_data.scamalytics?.score !== null ? item.raw_data.scamalytics.score : '无',
             item.raw_data.scamalytics?.risk !== undefined && item.raw_data.scamalytics?.risk !== null ? item.raw_data.scamalytics.risk : '无',
-            item.raw_data.proxycheck?.risk !== undefined && item.raw_data.proxycheck?.risk !== null ? item.raw_data.proxycheck.risk : '无'
+            pcRisk !== undefined && pcRisk !== null ? pcRisk : '无'
         ];
         
         // Escape CSV values
