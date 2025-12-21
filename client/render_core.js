@@ -10,10 +10,10 @@ function getProxyCheckData(rawData, ip) {
 
 // Helper function to get risk level from score
 function getRiskLevel(score) {
-    if (score === 0) return { label: '最低风险', color: 'text-green-400', bg: 'bg-green-400/10' };
-    if (score < 30) return { label: '低风险', color: 'text-green-400', bg: 'bg-green-400/10' };
-    if (score < 75) return { label: '中风险', color: 'text-yellow-400', bg: 'bg-yellow-400/10' };
-    return { label: '高风险', color: 'text-red-400', bg: 'bg-red-400/10' };
+    if (score <= 10) return { label: 'Tier S (完美)', color: 'text-green-400', bg: 'bg-green-400/10' };
+    if (score <= 30) return { label: 'Tier A (优秀)', color: 'text-blue-400', bg: 'bg-blue-400/10' };
+    if (score <= 75) return { label: 'Tier B (警告)', color: 'text-yellow-400', bg: 'bg-yellow-400/10' };
+    return { label: 'Tier F (高危)', color: 'text-red-400', bg: 'bg-red-400/10' };
 }
 
 // Helper function to get location from raw data
@@ -264,35 +264,105 @@ function getLayer3HTML(data) {
     `;
 }
 
+// Render Risk Calculation Details
+function getRiskCalculationDetailsHTML(data) {
+    // 如果数据中包含assessment对象，使用规范化的计算详情
+    if (data.assessment && data.assessment.calculationDetails) {
+        const { additions, reductions } = data.assessment.calculationDetails;
+        
+        return `
+            <div class="mt-4 glass-panel rounded-xl p-4 border border-white/5">
+                <h4 class="text-sm font-bold text-purple-300 mb-3 flex items-center gap-2">
+                    <i class="fas fa-calculator"></i> 风险计算详情
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Risk Additions -->
+                    <div>
+                        <h5 class="text-xs text-red-400 mb-2 flex items-center gap-1">
+                            <i class="fas fa-plus-circle"></i> 风险累积项
+                        </h5>
+                        ${additions.length > 0 ? `
+                            <ul class="text-xs text-gray-300 space-y-1">
+                                ${additions.map(item => `<li class="flex justify-between">
+                                    <span>${item.reason}</span>
+                                    <span class="text-red-400">+${item.points}</span>
+                                </li>`).join('')}
+                            </ul>
+                        ` : `
+                            <p class="text-xs text-gray-500">无风险累积项</p>
+                        `}
+                    </div>
+                    <!-- Risk Reductions -->
+                    <div>
+                        <h5 class="text-xs text-green-400 mb-2 flex items-center gap-1">
+                            <i class="fas fa-minus-circle"></i> 风险稀释项
+                        </h5>
+                        ${reductions.length > 0 ? `
+                            <ul class="text-xs text-gray-300 space-y-1">
+                                ${reductions.map(item => `<li class="flex justify-between">
+                                    <span>${item.reason}</span>
+                                    <span class="text-green-400">-${item.points}</span>
+                                </li>`).join('')}
+                            </ul>
+                        ` : `
+                            <p class="text-xs text-gray-500">无风险稀释项</p>
+                        `}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    return '';
+}
+
 // Render Result Card Header
 function getResultCardHeaderHTML(data) {
     const isMock = !data.rawData.ipqs && !data.rawData.ipinfo && !data.rawData.scamalytics && !data.rawData.proxycheck;
     const mockBadge = isMock ? `<span class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded ml-2">模拟数据</span>` : '';
     
-    // 确保风险评分数据的完整性，仅在fraudScore明确为0时显示0，否则显示实际值或'未知'
-    const hasValidScore = data.fraudScore !== undefined;
-    const displayScore = hasValidScore ? data.fraudScore : '未知';
+    // 确保风险评分数据的完整性，仅在finalScore明确为0时显示0，否则显示实际值或'未知'
+    const hasValidScore = typeof data.finalScore === 'number';
+    const displayScore = hasValidScore ? data.finalScore : '未知';
     
-    // 根据实际fraudScore计算风险等级，而不是使用可能不准确的riskLevel属性
+    // 使用规范化的tier信息（如果可用）
+    let tierInfo = data.assessment && data.assessment.tier ? data.assessment.tier : null;
     let displayLabel = '未知风险';
     let displayColor = 'text-gray-400';
     let displayBg = 'bg-gray-400/10';
     
-    if (hasValidScore) {
-        const riskLevel = getRiskLevel(data.fraudScore);
+    // 优先使用assessment.tier信息
+    if (tierInfo) {
+        displayLabel = tierInfo.name;
+        displayColor = tierInfo.color;
+        displayBg = tierInfo.bgColor;
+    }
+    // 其次使用finalScore计算
+    else if (hasValidScore) {
+        const riskLevel = getRiskLevel(data.finalScore);
         displayLabel = riskLevel.label;
         displayColor = riskLevel.color;
         displayBg = riskLevel.bg;
-    } else {
-        // 尝试从riskLevel对象获取信息（备选方案）
-        if (data.riskLevel) {
-            displayLabel = data.riskLevel.label || displayLabel;
-            displayColor = data.riskLevel.color || displayColor;
-            displayBg = data.riskLevel.bg || displayBg;
-        } else if (data.riskLabel) {
-            displayLabel = data.riskLabel;
-            displayColor = data.riskColor || displayColor;
-            displayBg = data.riskBg || displayBg;
+    }
+    // 再次尝试从riskLevel对象获取信息（备选方案）
+    else if (data.riskLevel) {
+        displayLabel = data.riskLevel.label || displayLabel;
+        displayColor = data.riskLevel.color || displayColor;
+        displayBg = data.riskLevel.bg || displayBg;
+    }
+    // 最后尝试从finalVerdict判断
+    else if (data.finalVerdict) {
+        if (data.finalVerdict.includes('完美') || data.finalVerdict.includes('优秀')) {
+            displayLabel = 'Tier S (完美)';
+            displayColor = 'text-green-400';
+            displayBg = 'bg-green-400/10';
+        } else if (data.finalVerdict.includes('警告')) {
+            displayLabel = 'Tier B (警告)';
+            displayColor = 'text-yellow-400';
+            displayBg = 'bg-yellow-400/10';
+        } else if (data.finalVerdict.includes('高危') || data.finalVerdict.includes('禁止') || data.finalVerdict.includes('失败')) {
+            displayLabel = 'Tier F (高危)';
+            displayColor = 'text-red-400';
+            displayBg = 'bg-red-400/10';
         }
     }
     
@@ -375,22 +445,22 @@ function getRiskScorePanelHTML(data) {
         else pcClass = 'text-red-400 font-medium';
     }
 
-    // 确保数据的完整性，仅在fraudScore明确为0时显示0，否则显示实际值或'未知'
-    const hasValidScore = data.fraudScore !== undefined;
-    const displayScore = hasValidScore ? data.fraudScore : '未知';
+    // 确保数据的完整性，使用规范化的finalScore
+    const hasValidScore = typeof data.finalScore === 'number';
+    const displayScore = hasValidScore ? data.finalScore : '未知';
     
     // 4. 判定结果颜色
     let verdictColor = 'text-gray-400';
     if (hasValidScore) {
-        if (data.fraudScore === 0) verdictColor = 'text-green-400';
-        else if (data.finalVerdict.includes('通过') || data.finalVerdict.includes('良好') || data.finalVerdict.includes('适合')) verdictColor = 'text-green-400';
-        else if (data.finalVerdict.includes('警告') || data.finalVerdict.includes('谨慎') || data.finalVerdict.includes('商业')) verdictColor = 'text-yellow-400';
+        if (data.finalScore <= 10) verdictColor = 'text-green-400';
+        else if (data.finalScore <= 30) verdictColor = 'text-blue-400';
+        else if (data.finalScore <= 75) verdictColor = 'text-yellow-400';
         else verdictColor = 'text-red-400';
     } else {
         // 如果没有有效评分，根据finalVerdict判断
-        if (data.finalVerdict.includes('通过') || data.finalVerdict.includes('良好') || data.finalVerdict.includes('适合')) verdictColor = 'text-green-400';
-        else if (data.finalVerdict.includes('警告') || data.finalVerdict.includes('谨慎') || data.finalVerdict.includes('商业')) verdictColor = 'text-yellow-400';
-        else if (data.finalVerdict.includes('禁止') || data.finalVerdict.includes('失败') || data.finalVerdict.includes('高风险')) verdictColor = 'text-red-400';
+        if (data.finalVerdict.includes('完美') || data.finalVerdict.includes('优秀')) verdictColor = 'text-green-400';
+        else if (data.finalVerdict.includes('警告')) verdictColor = 'text-yellow-400';
+        else if (data.finalVerdict.includes('高危') || data.finalVerdict.includes('禁止') || data.finalVerdict.includes('失败')) verdictColor = 'text-red-400';
     }
 
     return `
@@ -420,12 +490,18 @@ function getRiskScorePanelHTML(data) {
                 <!-- 右侧：汇总 -->
                 <div class="bg-dark-900/50 p-3 rounded-lg border border-white/5 flex flex-col justify-center gap-3">
                     <div class="flex justify-between items-center border-b border-white/5 pb-2">
-                        <span class="text-sm text-gray-400">总欺诈评分:</span>
-                        <span class="font-bold text-xl ${hasValidScore ? (displayScore === 0 ? 'text-green-400' : displayScore < 30 ? 'text-green-400' : displayScore < 75 ? 'text-yellow-400' : 'text-red-400') : 'text-gray-400'}">${displayScore}</span>
+                        <span class="text-sm text-gray-400">风险评分:</span>
+                        <span class="font-bold text-xl ${hasValidScore ? (displayScore <= 10 ? 'text-green-400' : displayScore <= 30 ? 'text-blue-400' : displayScore <= 75 ? 'text-yellow-400' : 'text-red-400') : 'text-gray-400'}">${displayScore}</span>
                     </div>
                     <div class="flex justify-between items-center pt-1">
                         <span class="text-sm text-gray-400">判定结果:</span>
                         <span class="font-bold text-sm ${verdictColor}">${data.finalVerdict}</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-1">
+                        <span class="text-sm text-gray-400">适用场景:</span>
+                        <span class="font-bold text-xs ${hasValidScore ? (displayScore <= 10 ? 'text-green-400' : displayScore <= 30 ? 'text-blue-400' : displayScore <= 75 ? 'text-yellow-400' : 'text-red-400') : 'text-gray-400'}">
+                            ${hasValidScore ? (displayScore <= 10 ? '注册新号/提现/申诉/投流' : displayScore <= 30 ? '日常运营/挂车/直播' : displayScore <= 75 ? '仅限刷视频养号' : '立即弃用') : '未知'}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -447,9 +523,10 @@ function getResultCardHTML(data) {
         <div class="glass-panel rounded-xl p-6 animate-[fadeIn_0.5s_ease-out]">
             ${getResultCardHeaderHTML(normalizedData)}
             ${getLayer1HTML(normalizedData)}
-            ${getRiskScorePanelHTML(normalizedData)} <!-- 新增插入点 -->
-            ${getLayer2HTML(normalizedData)}
-            ${getLayer3HTML(normalizedData)}
+            ${getRiskScorePanelHTML(normalizedData)} <!-- 各平台风险评分 -->
+            ${getRiskCalculationDetailsHTML(normalizedData)} <!-- 风险计算详情 -->
+            ${getLayer2HTML(normalizedData)} <!-- IP质量评估 -->
+            ${getLayer3HTML(normalizedData)} <!-- 原始API响应 -->
         </div>
     `;
 }
@@ -482,6 +559,7 @@ window.RenderCore = {
     getLayer2HTML,
     getLayer3HTML,
     getRiskScorePanelHTML,
+    getRiskCalculationDetailsHTML,
     getResultCardHTML,
     getVerdictHTML,
     // Helper functions for external use

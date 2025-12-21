@@ -232,22 +232,22 @@ async function executeLayer1(ip, result) {
             const pcNode = getProxyCheckNode(dataProxyCheck, ip);
             const pcType = pcNode.type || '';
             
-            if (['VPN', 'Proxy', 'Hosting'].includes(pcType)) {
+            // 高危类型检测 (VPN, Tor, Hosting)
+            if (['VPN', 'Tor', 'Hosting'].includes(pcType)) {
                 result.status = 'FAIL';
-                result.message = `Layer 1 拦截: 类型为 ${pcType}`;
+                result.message = `Layer 1 拦截: 高危类型 ${pcType}`;
                 return result;
             } else if (pcType === 'Business') {
                 result.layers.layer1.specialType = 'Business';
             }
         }
 
-        // 2. IPinfo 云厂商熔断
+        // 2. 黑名单组织检测
         if (dataIPinfo && dataIPinfo.org) {
-            const isp = dataIPinfo.org.toLowerCase();
-            const cloudVendors = ['google', 'amazon', 'aws', 'cloudflare', 'alibaba', 'tencent'];
-            if (cloudVendors.some(v => isp.includes(v))) {
+            const org = dataIPinfo.org;
+            if (BLACKLIST_PROVIDERS.some(provider => org.includes(provider))) {
                 result.status = 'FAIL';
-                result.message = `Layer 1 拦截: 云厂商 ${isp}`;
+                result.message = `Layer 1 拦截: 黑名单组织 ${org}`;
                 return result;
             }
         }
@@ -268,10 +268,11 @@ async function executeLayer2(ip, result) {
         const scamRes = await fetchScamalytics(ip);
         result.rawData.scamalytics = scamRes;
 
-        if (scamRes && scamRes.score > 40) {
-            result.status = 'WARN'; 
-            result.message = `Layer 2 警告: Scamalytics 分数过高 (${scamRes.score})`;
-            result.layers.layer2.status = 'WARN';
+        // 熔断逻辑：Scamalytics 评分 > 50 直接熔断
+        if (scamRes && scamRes.score > 50) {
+            result.status = 'FAIL'; 
+            result.message = `Layer 2 熔断: Scamalytics 高危分数 (${scamRes.score})`;
+            result.layers.layer2.status = 'FAIL';
         } else {
             result.layers.layer2.status = 'PASS';
         }
@@ -318,90 +319,374 @@ async function executeLayer3(ip, result) {
     }
 } // End executeLayer3
 
-// 最终判定逻辑
-function determineFinalVerdict(result) {
-    // 1. 提取分数 (严格处理 0 分)
-    let ipqsScore = null;
-    if (result.rawData.ipqs && result.rawData.ipqs.success && result.rawData.ipqs.fraud_score !== undefined) {
-        ipqsScore = result.rawData.ipqs.fraud_score;
-    }
+// 关键词库定义
+const BLACKLIST_PROVIDERS = [
+    // Major Cloud
+    "Amazon", "Google", "Microsoft", "Azure", "Oracle", "Alibaba", "Tencent",
+    "DigitalOcean", "Vultr", "Linode", "Hetzner", "OVH", "Choopa", "M247",
+    // Proxy Networks (Commercial Residential Proxies) - CRITICAL FOR TIKTOK
+    "NetNut", "Bright Data", "Luminati", "Oxylabs", "Smartproxy", "Decodo",
+    "Soax", "IPRoyal", "PacketStream", "GeoSurf", "StormProxies", "Rayobyte",
+    // Hosting/VPN specific
+    "NetLab", "Hostinger", "Kamatera", "Webdock", "Cogent", "QuadraNet",
+    "Zenlayer", "Hostwinds", "FranTech", "BuyVM"
+];
 
-    let scamScore = null;
-    if (result.rawData.scamalytics && result.rawData.scamalytics.score !== undefined) {
-        scamScore = result.rawData.scamalytics.score;
-    }
+const GRAYLIST_KEYWORDS = [
+    "business", "biz", "corp", "corporate", "static", "fixed",
+    "dedi", "dedicated", "colo", "colocation", "enterprise",
+    "solutions", "telecom", "host", "data", "center", "gw", "gateway"
+];
 
-    // 使用 RenderCore.getProxyCheckData 函数获取 ProxyCheck 数据，确保与历史记录评分逻辑一致
-    const pcData = window.RenderCore.getProxyCheckData(result.rawData.proxycheck, result.ip);
-    let pcScore = null;
-    if (pcData.risk !== undefined) {
-        pcScore = parseInt(pcData.risk);
-    }
+const WHITELIST_ISPS = [
+    "Comcast", "Charter", "Spectrum", "Time Warner",
+    "Verizon", "Fios", "AT&T", "U-verse", "SBC Internet",
+    "Cox Communications", "CenturyLink", "Lumen",
+    "T-Mobile USA", "Sprint", "Frontier", "Windstream", "Mediacom"
+];
 
-    // 2. 决策优先级
-    let finalScore = 0;
-    if (ipqsScore !== null) finalScore = ipqsScore;
-    else if (scamScore !== null) finalScore = scamScore;
-    else if (pcScore !== null) finalScore = pcScore;
+const WHITELIST_HOSTNAME_KEYWORDS = [
+    "res", "resid", "residential", // Strongest signal
+    "dyn", "dynamic", "dhcp",      // Strong signal
+    "home", "user", "cpe", "fios", "dsl", "cable",
+    "pool", "client", "subscriber"
+];
+
+// 规范化输出数据结构 - RiskAssessment
+class RiskAssessment {
+    constructor(ip, rawData) {
+        this.ip = ip;
+        this.rawData = rawData;
+        this.riskScore = 0;
+        this.tier = {
+            name: '',
+            level: '',
+            text: '',
+            emoji: '',
+            color: '',
+            bgColor: ''
+        };
+        this.riskLabel = '';
+        this.verdict = '';
+        this.location = '';
+        this.asn = '';
+        this.ipType = {
+            type: '',
+            confidence: 'medium'
+        };
+        this.quality = {
+            isValid: true,
+            isDatacenter: false,
+            isMobile: false,
+            hasRecentAbuse: false,
+            isBlacklisted: false,
+            ispRisk: 'low',
+            specialService: [],
+            countryConflict: false
+        };
+        this.metadata = {
+            scoreSources: [],
+            scoreConfidence: 'medium'
+        };
+        this.calculationDetails = {
+            additions: [],
+            reductions: []
+        };
+    }
     
-    // 3. 判定红绿灯
-    let verdict = '未知';
+    // 设置风险评分
+    setRiskScore(score) {
+        this.riskScore = Math.max(0, Math.min(100, score));
+        this.calculateTier();
+        this.calculateRiskLabel();
+        this.calculateVerdict();
+    }
     
-    if (result.status === 'FAIL') {
-        verdict = result.message || '❌ 禁止使用';
-        finalScore = 100;
-    } else {
-        if (finalScore < 30) {
-            if (result.layers.layer1.specialType === 'Business') {
-                verdict = '🟡 警告 (Business IP)';
-            } else {
-                verdict = '🟢 通过';
-            }
-        } else if (finalScore < 75) {
-            verdict = '⚠️ 需谨慎使用';
+    // 计算Tier等级
+    calculateTier() {
+        if (this.riskScore <= 10) {
+            this.tier = {
+                name: 'Tier S',
+                level: 'S',
+                text: '完美',
+                emoji: '🟢',
+                color: 'text-green-400',
+                bgColor: 'bg-green-400/10'
+            };
+        } else if (this.riskScore <= 30) {
+            this.tier = {
+                name: 'Tier A',
+                level: 'A',
+                text: '优秀',
+                emoji: '🔵',
+                color: 'text-blue-400',
+                bgColor: 'bg-blue-400/10'
+            };
+        } else if (this.riskScore <= 75) {
+            this.tier = {
+                name: 'Tier B',
+                level: 'B',
+                text: '警告',
+                emoji: '🟡',
+                color: 'text-yellow-400',
+                bgColor: 'bg-yellow-400/10'
+            };
         } else {
-            verdict = '❌ 禁止使用';
+            this.tier = {
+                name: 'Tier F',
+                level: 'F',
+                text: '高危',
+                emoji: '🔴',
+                color: 'text-red-400',
+                bgColor: 'bg-red-400/10'
+            };
         }
     }
     
-    // 使用 RenderCore.getRiskLevel 函数获取风险等级，确保逻辑一致性
-    const RC = window.RenderCore;
-    const riskLevel = RC.getRiskLevel(finalScore);
+    // 计算风险标签
+    calculateRiskLabel() {
+        if (this.riskScore <= 10) {
+            this.riskLabel = '最低风险';
+        } else if (this.riskScore <= 30) {
+            this.riskLabel = '低风险';
+        } else if (this.riskScore <= 75) {
+            this.riskLabel = '中风险';
+        } else {
+            this.riskLabel = '高风险';
+        }
+    }
+    
+    // 生成最终判定
+    calculateVerdict() {
+        this.verdict = `${this.tier.emoji} ${this.tier.text} (${this.tier.name})`;
+        this.quality.verdict = this.verdict;
+    }
+    
+    // 添加风险累积项
+    addRiskAddition(reason, points) {
+        this.calculationDetails.additions.push({ reason, points });
+    }
+    
+    // 添加风险稀释项
+    addRiskReduction(reason, points) {
+        this.calculationDetails.reductions.push({ reason, points });
+    }
+    
+    // 设置位置信息
+    setLocation(country, city) {
+        this.location = `${country || ''} ${city || ''}`.trim();
+    }
+    
+    // 设置ISP信息
+    setAsn(asn) {
+        this.asn = asn;
+    }
+    
+    // 设置IP类型
+    setIpType(type, confidence = 'medium') {
+        this.ipType = {
+            type,
+            confidence
+        };
+        
+        // 更新质量评估
+        this.quality.isDatacenter = type.includes('机房') || type.includes('Hosting') || type === 'Hosting';
+        this.quality.isMobile = type.includes('移动') || type.includes('Wireless') || type === 'Wireless';
+    }
+    
+    // 设置质量评估
+    setQualityAssessment(isDatacenter, isMobile, hasRecentAbuse, isBlacklisted, ispRisk, specialService = [], countryConflict = false) {
+        this.quality = {
+            isValid: true,
+            isDatacenter,
+            isMobile,
+            hasRecentAbuse,
+            isBlacklisted,
+            ispRisk,
+            specialService,
+            countryConflict
+        };
+    }
+    
+    // 设置元数据
+    setMetadata(scoreSources, scoreConfidence) {
+        this.metadata = {
+            scoreSources,
+            scoreConfidence
+        };
+    }
+    
+    // 转换为RenderCore兼容格式
+    toRenderCoreFormat() {
+        return {
+            ip: this.ip,
+            rawData: this.rawData,
+            finalScore: this.riskScore,
+            finalVerdict: this.verdict,
+            riskLevel: {
+                label: this.riskLabel,
+                color: this.tier.color,
+                bg: this.tier.bgColor
+            },
+            riskLabel: this.riskLabel,
+            riskColor: this.tier.color,
+            riskBg: this.tier.bgColor,
+            location: this.location,
+            asn: this.asn,
+            type: this.ipType.type,
+            typeConfidence: this.ipType.confidence,
+            quality: this.quality,
+            scoreSources: this.metadata.scoreSources,
+            scoreConfidence: this.metadata.scoreConfidence,
+            fraudScore: this.riskScore // 兼容旧代码
+        };
+    }
+}
 
-    // 4. 回填数据
-    result.finalScore = finalScore;
-    result.finalVerdict = verdict;
-    result.riskLevel = riskLevel;
+// 最终判定逻辑 - 风险累积评分制
+function determineFinalVerdict(result) {
+    // 1. 获取各API数据
+    const ipqsData = result.rawData.ipqs || {};
+    const scamData = result.rawData.scamalytics || {};
+    const pcData = window.RenderCore.getProxyCheckData(result.rawData.proxycheck, result.ip);
+    const ipinfoData = result.rawData.ipinfo || {};
     
-    // 添加风险等级的单独属性，确保 RenderCore 能正确访问
-    result.riskLabel = riskLevel.label;
-    result.riskColor = riskLevel.color;
-    result.riskBg = riskLevel.bg;
+    // 2. 创建规范化的风险评估对象
+    const assessment = new RiskAssessment(result.ip, result.rawData);
     
-    const ipinfo = result.rawData.ipinfo || {};
-    result.location = `${ipinfo.country || ''} ${ipinfo.city || ''}`.trim();
-    result.asn = ipinfo.org || pcData.provider || '未知 ISP';
-    result.type = pcData.type || '未知类型';
-    result.typeConfidence = 'medium'; // 默认置信度
+    let riskScore = 0;
     
-    // 添加 quality 对象，确保 IP 质量评估模块能正常显示
-    result.quality = {
-        isValid: true,
-        verdict: verdict,
-        isDatacenter: result.type.includes('机房') || result.type.includes('Hosting'),
-        isMobile: result.type.includes('移动') || result.type.includes('Wireless'),
-        hasRecentAbuse: (result.rawData.ipqs?.recent_abuse === true) || (pcScore > 50),
-        isBlacklisted: (result.rawData.ipqs?.blacklisted === true) || (scamScore > 75),
-        ispRisk: finalScore < 30 ? 'low' : finalScore < 75 ? 'medium' : 'high',
-        specialService: [],
-        countryConflict: false // 默认无冲突
+    // 3. 熔断机制 (直接锁定为100分)
+    let is熔断 = false;
+    
+    // 第三方高危
+    if ((scamData.score > 50) || (pcData.risk > 40)) {
+        riskScore = 100;
+        is熔断 = true;
+    }
+    // 黑名单组织
+    else if (ipinfoData.org && BLACKLIST_PROVIDERS.some(provider => ipinfoData.org.includes(provider))) {
+        riskScore = 100;
+        is熔断 = true;
+    }
+    // 高危类型
+    else if (['VPN', 'Tor', 'Hosting'].includes(pcData.type)) {
+        riskScore = 100;
+        is熔断 = true;
+    }
+    // 4. 风险累积评分
+    else {
+        // 初始风险为0
+        riskScore = 0;
+        
+        // 风险累积项 (加分)
+        // Scamalytics 评分风险
+        if (scamData.score !== undefined) {
+            if (scamData.score > 50) {
+                // 已经在熔断机制中处理
+            } else if (scamData.score > 30) {
+                riskScore += scamData.score * 0.5; // 30-50分，乘以0.5的权重
+                assessment.addRiskAddition(`Scamalytics 评分风险 (${scamData.score})`, Math.round(scamData.score * 0.5));
+            } else if (scamData.score > 10) {
+                riskScore += scamData.score * 0.3; // 10-30分，乘以0.3的权重
+                assessment.addRiskAddition(`Scamalytics 评分风险 (${scamData.score})`, Math.round(scamData.score * 0.3));
+            }
+        }
+        
+        // 所有权存疑 (Leased Line)
+        if (ipinfoData.org && ipinfoData.isp) {
+            const orgLower = ipinfoData.org.toLowerCase();
+            const ispLower = ipinfoData.isp.toLowerCase();
+            if (!orgLower.includes(ispLower) && GRAYLIST_KEYWORDS.some(keyword => orgLower.includes(keyword))) {
+                riskScore += 40;
+                assessment.addRiskAddition('所有权存疑 (Leased Line)', 40);
+            }
+        }
+        
+        // 商业类型 (Business Type)
+        if (pcData.type === 'Business') {
+            riskScore += 25;
+            assessment.addRiskAddition('商业类型 (Business Type)', 25);
+        }
+        
+        // 主机名异常 (Bad Hostname)
+        if (pcData.hostname) {
+            const hostnameLower = pcData.hostname.toLowerCase();
+            if (GRAYLIST_KEYWORDS.some(keyword => hostnameLower.includes(keyword))) {
+                riskScore += 20;
+                assessment.addRiskAddition('主机名异常 (Bad Hostname)', 20);
+            }
+        }
+        
+        // 风险稀释项 (减分)
+        // 白名单 ISP (Whitelist ISP)
+        if (ipinfoData.isp) {
+            const ispLower = ipinfoData.isp.toLowerCase();
+            if (WHITELIST_ISPS.some(isp => ispLower.includes(isp.toLowerCase()))) {
+                riskScore -= 20;
+                assessment.addRiskReduction('白名单 ISP (Whitelist ISP)', 20);
+            }
+        }
+        
+        // 住宅特征 (Res Hostname)
+        if (pcData.hostname) {
+            const hostnameLower = pcData.hostname.toLowerCase();
+            if (WHITELIST_HOSTNAME_KEYWORDS.some(keyword => hostnameLower.includes(keyword))) {
+                riskScore -= 20;
+                assessment.addRiskReduction('住宅特征 (Res Hostname)', 20);
+            }
+        }
+        
+        // 双重纯净认证
+        if ((scamData.score === 0) && (pcData.risk === 0)) {
+            riskScore -= 5;
+            assessment.addRiskReduction('双重纯净认证', 5);
+        }
+    }
+    
+    // 5. 设置风险评分
+    assessment.setRiskScore(riskScore);
+    
+    // 6. 设置位置和ISP信息
+    assessment.setLocation(ipinfoData.country, ipinfoData.city);
+    assessment.setAsn(ipinfoData.org || pcData.provider || '未知 ISP');
+    
+    // 7. 设置IP类型
+    const ipType = pcData.type || '未知类型';
+    assessment.setIpType(ipType);
+    
+    // 8. 设置质量评估
+    const isDatacenter = ipType.includes('机房') || ipType.includes('Hosting') || ipType === 'Hosting';
+    const isMobile = ipType.includes('移动') || ipType.includes('Wireless') || ipType === 'Wireless';
+    const hasRecentAbuse = (ipqsData.recent_abuse === true) || (pcData.risk > 50);
+    const isBlacklisted = (ipqsData.blacklisted === true) || (scamData.score > 75);
+    const ispRisk = riskScore <= 10 ? 'low' : riskScore <= 30 ? 'low' : riskScore <= 75 ? 'medium' : 'high';
+    
+    assessment.setQualityAssessment(
+        isDatacenter,
+        isMobile,
+        hasRecentAbuse,
+        isBlacklisted,
+        ispRisk
+    );
+    
+    // 9. 设置元数据
+    const RC = window.RenderCore;
+    assessment.setMetadata(
+        RC.getScoreSources(result.rawData),
+        RC.getScoreConfidence(result.rawData)
+    );
+    
+    // 10. 转换为兼容格式并返回
+    const renderCoreData = assessment.toRenderCoreFormat();
+    
+    // 保留原始结果的必要属性
+    return {
+        ...result,
+        ...renderCoreData,
+        // 添加规范化的assessment对象，便于后续扩展
+        assessment: assessment
     };
-    
-    // 添加其他 RenderCore 需要的属性
-    result.scoreSources = RC.getScoreSources(result.rawData);
-    result.scoreConfidence = RC.getScoreConfidence(result.rawData);
-    
-    return result;
 } // End determineFinalVerdict
 
 // 辅助：获取 ProxyCheck 的内部节点

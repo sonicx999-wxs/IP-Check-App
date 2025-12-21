@@ -1,4 +1,4 @@
 // Version Configuration - Centralized version management
 const APP_CONFIG = {
-    version: '3.0.1'
+    version: '3.1.0'
 };

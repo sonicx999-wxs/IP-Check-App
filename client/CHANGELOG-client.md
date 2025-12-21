@@ -6,6 +6,29 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本规范。
 
+## [3.1.0] - 2025-12-22 🔧
+
+### ✨ 核心功能更新 (Core Feature Updates)
+
+#### 风险累积评分制
+- **实现风险累积评分制**: 替代原有评分逻辑，初始风险为0，发现疑点加分（罚），发现可信特征减分（赏）
+- **风险计算详情**: 新增风险计算详情面板，显示风险累积项和风险稀释项
+- **Tier等级优化**: 优化Tier等级判定逻辑，确保风险评分与Tier等级一致
+
+#### Scamalytics评分优化
+- **添加Scamalytics评分风险累积项**: Scamalytics评分10-30分乘以0.3的权重，30-50分乘以0.5的权重
+- **提高评分准确性**: 确保高Scamalytics评分的IP被正确判定为高风险
+
+#### UI显示优化
+- **修复风险评分显示问题**: 确保风险评分与适用场景正确显示
+- **修复卡片顶部风险评分**: 确保卡片顶部风险评分与判定结果一致
+- **优化风险等级显示**: 优先使用assessment.tier信息显示风险等级
+
+### 🐛 修复与优化
+- **修复hasValidScore判断**: 将判断条件从`data.finalScore !== undefined`改为`typeof data.finalScore === 'number'`
+- **优化风险计算逻辑**: 确保风险计算逻辑完整准确
+- **提高系统稳定性**: 修复各种边界情况的处理
+
 ## [3.0.0] - 2025-12-07 🔄
 
 ### ✨ 核心功能更新 (Core Feature Updates)
